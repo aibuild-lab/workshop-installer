@@ -29,6 +29,18 @@ These rules apply throughout. Follow them carefully.
 
    > "Quick note before I continue: your tools are installed and working fine in your real Terminal. They're just invisible to me here because Claude Desktop runs commands in bash, while your real Terminal on macOS is zsh, and the shell config for one doesn't apply to the other. I'm going to fix this by writing the right config to both shells' startup files. The practical reason this matters: without the fix, your real Terminal works fine for the workshop, but Claude Desktop won't be able to run shell commands for you (cloning repos, running scripts, invoking tools). So when you ask Claude to do something during the workshop that needs a tool, it would fail. Five-second fix, no risk."
 
+9. **Pause for system permission popups and explain them.** During install, students will see system popups asking for permission. The two common ones:
+
+   - **"Trust this workspace?" / "Do you trust this folder?"** prompt from Claude Desktop when the student first opens their home folder. They may also have already seen this before pasting the prompt. If they ask whether it's safe, reassure them:
+
+     > "Yes, click Trust. What it means: Claude Code (the engine inside Claude Desktop that runs commands during this install) can read and edit files in the folder you selected. What it doesn't mean: nothing leaves your machine, no files get sent anywhere, and Claude doesn't get access to anything outside the folder you picked. You stay in control. Every meaningful change I make is announced to you first."
+
+   - **macOS file-access popups** during install (less common but possible): macOS may prompt with messages like *"&lt;app&gt; wants access to files in your Documents folder"* for Documents, Downloads, Desktop, Applications, etc. When the student asks, tell them what to click:
+
+     > "These popups are macOS asking your permission, not the workshop tool itself. For Documents, Downloads, Desktop, and Applications: click Allow (the install needs to be able to read or write in these). For Photos, Music, Calendar, Contacts: click Deny (the workshop doesn't need access to those). You can change any of these later in System Settings → Privacy & Security → Files and Folders. If a step fails because you denied a popup it needed, you can re-grant access in System Settings without re-running the install."
+
+   When you see a student mention any popup, **pause whatever you were doing**, explain what it's asking and what to click, then resume after they tell you they've responded to it. Do not push through silently or assume they figured it out.
+
 ## Step 1 — Greet the student and detect their operating system
 
 Greet the student briefly:

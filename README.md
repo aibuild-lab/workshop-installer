@@ -21,6 +21,37 @@ A guided setup for the workshop's four required tools: Git, Node.js, GitHub CLI,
 
 4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10–15 minutes (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first).
 
+## What you'll see during install (and what to click)
+
+A couple of system popups appear during install. They look intimidating at first; here's what each one is and what to click. If a popup confuses you, ask Claude in chat and it'll walk you through.
+
+### "Trust this workspace?" or "Do you trust this folder?" (Claude Desktop)
+
+When you select your home folder in Claude Desktop, you'll see a prompt asking if you trust the workspace. **Click Trust.**
+
+What "trusting" means: Claude Code (the engine inside Claude Desktop that runs commands during install) can read and edit files in the folder you selected. What it doesn't mean: nothing leaves your machine, no files get sent anywhere, and Claude doesn't get access to anything outside the folder you picked. You stay in control. Every meaningful change is announced to you first.
+
+### macOS file-access popups (Documents, Downloads, Desktop, etc.)
+
+During or after install, macOS may show popups like *"&lt;app&gt; wants access to files in your Documents folder"*. These are macOS asking your permission, not the workshop tool itself.
+
+For the workshop:
+
+- **Documents, Downloads, Desktop, Applications:** Click **Allow**. The install (and Claude Code during the workshop) reads or writes in these folders to do its job. Denying any of these may cause an install step to fail with a clear error message.
+- **Photos, Music, Calendar, Contacts:** Click **Deny**. The workshop has no reason to access these.
+
+You can change any of these later in System Settings → Privacy & Security → Files and Folders. Granting or denying these doesn't affect anything outside the workshop tools.
+
+### Mac password prompt (during Homebrew install only)
+
+If your machine doesn't have Homebrew yet, Claude will hand off to your Terminal so you can run the Homebrew installer there. That installer asks for your Mac password. **You type your password into your own Terminal, not into Claude Desktop. Claude never sees your password.**
+
+When you type the password, macOS will show NOTHING as you type (no characters, no dots, no asterisks). That's a security feature, not a bug. Type the password and press Enter. If you make a typo, hit Backspace 15 to 20 times to clear the field, then type again.
+
+### UAC prompts (Windows)
+
+On Windows, you'll see *"Do you want to allow this app to make changes to your device?"* dialogs ~2 to 3 times during install. Click **Yes**. These are Windows confirming that `winget` is allowed to install software. No password is typed; just click Yes.
+
 ## Verify your install (Mac users)
 
 If Claude Desktop is reporting tools as "missing" but they work fine in your real Terminal, or you just want to confirm everything is set up correctly, run a quick audit. This is a Mac-specific issue: Claude Desktop runs commands in a bash subshell, while your real Terminal is zsh, and the two shells have different startup files. If only one of those files is configured, tools will appear missing to one shell but not the other.
