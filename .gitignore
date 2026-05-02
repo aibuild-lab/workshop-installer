@@ -1,0 +1,10 @@
+# Local Claude Code project config (kept out of public repo)
+CLAUDE.md
+.claude/
+
+# OS-level metadata
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
