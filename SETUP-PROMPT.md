@@ -23,6 +23,11 @@ These rules apply throughout. Follow them carefully.
 5. **On any error, pause.** If a step errors out or the verify step fails, stop. Tell the student: *"I hit an error here. Could you take a screenshot of what's on your screen and share it with me? I'll diagnose what went wrong before continuing."* Don't push through silently.
 6. **Be safe to re-run.** A student might paste this prompt after a previous attempt left their machine in a partial state (some things installed, some not, some installed but with PATH issues). The detection-first protocol naturally handles this — you don't need a separate "cleanup mode," just run normally and the detect step finds whatever's already there.
 7. **Use em-dashes sparingly in your responses.** When writing messages to the student, prefer commas, colons, semicolons, parentheses, or periods over em-dashes (—). Em-dashes are fine occasionally but the team's style preference is to minimize them in student-facing output. (This rule applies to your responses, not to the structural framing of this prompt itself.)
+8. **The bash subshell vs zsh user shell gotcha (macOS).** This is critical to get right. Claude Desktop runs your shell commands in a bash subshell that does NOT load the user's `~/.zshrc` or `~/.zprofile`. The user's actual interactive Terminal on macOS is usually zsh, which DOES load those files. This means tools the user installed previously (working perfectly in their real Terminal) may appear missing to your `command -v` checks here. **Never report a tool as "not installed" based only on `command -v` failing.** Always cross-check the file system using the file-path fallbacks listed in Step 2. If a binary exists at the expected file path but `command -v` doesn't find it, the tool IS installed and works in the user's real Terminal; it's just invisible to your subshell. Treat as "installed but not on PATH for this subshell" and proceed to the PATH fix step.
+
+   **When you encounter this case, explain it to the student plainly so they don't panic.** Use language like:
+
+   > "Quick note before I continue: your tools are installed and working fine in your real Terminal. They're just invisible to me here because Claude Desktop runs commands in bash, while your real Terminal on macOS is zsh, and the shell config for one doesn't apply to the other. I'm going to fix this by writing the right config to both shells' startup files. The practical reason this matters: without the fix, your real Terminal works fine for the workshop, but Claude Desktop won't be able to run shell commands for you (cloning repos, running scripts, invoking tools). So when you ask Claude to do something during the workshop that needs a tool, it would fail. Five-second fix, no risk."
 
 ## Step 1 — Greet the student and detect their operating system
 
@@ -61,13 +66,14 @@ Detect OS by running `uname -s`:
 
 Before installing anything, run a full detection sweep on all four tools (and the platform prerequisites). Then summarize what you found and the plan.
 
-For Mac, detect:
-- Apple Command Line Tools (`xcode-select -p`)
-- Homebrew (`command -v brew`, plus check for `/opt/homebrew/bin/brew` and `/usr/local/bin/brew`)
-- Git (`command -v git`)
-- Node.js (`command -v node` + `node --version` to verify v18+)
-- GitHub CLI (`command -v gh`)
-- Claude Code (`command -v claude`, plus check for `~/.local/bin/claude`)
+For Mac, detect using the **three-state pattern from rule 4** (installed-on-PATH ✅ / installed-not-on-PATH ⚠️ / not-installed ❌). For every tool below, check `command -v <tool>` AND check the file system fallback paths. **A tool is only "not installed" if both checks fail.** If `command -v` fails but the binary exists at one of the file paths, it's installed-but-not-on-PATH (rule 8 applies):
+
+- **Apple Command Line Tools:** `xcode-select -p`
+- **Homebrew:** `command -v brew`; fallback paths `/opt/homebrew/bin/brew` (Apple Silicon), `/usr/local/bin/brew` (Intel)
+- **Git:** `command -v git`; fallback paths `/opt/homebrew/bin/git`, `/usr/local/bin/git`, `/Library/Developer/CommandLineTools/usr/bin/git` (CLT bundles git)
+- **Node.js:** `command -v node` + `node --version` for v18+; fallback paths `/opt/homebrew/bin/node`, `/usr/local/bin/node`
+- **GitHub CLI:** `command -v gh`; fallback paths `/opt/homebrew/bin/gh`, `/usr/local/bin/gh`
+- **Claude Code:** `command -v claude`; fallback path `~/.local/bin/claude`
 
 For Windows, detect:
 - winget (`Get-Command winget` — should be present on Win 10 build 2004+ or Win 11)
@@ -233,37 +239,71 @@ After install, **expect Anthropic's installer to print a 'Setup notes' message**
 
 This step writes the necessary `export` and `eval` lines into the student's shell configuration files so that future terminal sessions automatically have brew and Claude on PATH.
 
-**Why this matters:** When Homebrew and Claude were installed, their binaries went to specific directories (`/opt/homebrew/bin/brew` and `~/.local/bin/claude`). For the student's terminal to find them when they type `brew` or `claude`, those directories need to be in the shell's PATH variable. The shell loads its PATH from configuration files in the user's home directory each time a new terminal is opened. If we don't update those files, the student will get "command not found" every time they open a fresh terminal.
+**Why this matters:** When Homebrew and Claude Code were installed, their binaries went to specific directories (`/opt/homebrew/bin/brew` on Apple Silicon, or `/usr/local/bin/brew` on Intel; `~/.local/bin/claude` for Claude Code). For the student's shells to find those binaries when they type `brew` or `claude`, those directories need to be on the shell's PATH. Each shell loads its PATH from configuration files at startup. There are TWO files to handle (this is the part that gets forgotten):
+- `~/.zshrc` is loaded by the user's real Terminal on macOS (zsh)
+- `~/.bash_profile` is loaded by Claude Desktop's bash subshell when it runs as a login shell
 
-**What you'll do:** Append the necessary lines to **both** `~/.bash_profile` AND `~/.zshrc` (writing to both is defensive — Macs default to zsh now, but some students still have bash configurations from older macOS, and this ensures the PATH works regardless of which shell they're using or end up using).
+If you only update one file, one of those two shells won't see the tools. That's how students end up with tools that work in their real Terminal but appear missing to Claude Desktop, or vice versa.
 
-The lines to append:
+**What you'll do (be rigid about this; don't skip steps):**
 
-For Homebrew (only if it was installed at `/opt/homebrew` — Apple Silicon — adjust to `/usr/local` for Intel):
-```
-eval "$(/opt/homebrew/bin/brew shellenv)"
-```
+1. **Append BOTH lines below to BOTH files. No exceptions, no shortcuts.** If a line is already present in a file, don't add a duplicate, but make sure both files have both lines after this step.
 
-For Claude:
-```
-export PATH="$HOME/.local/bin:$PATH"
-```
+   For Homebrew (use the Apple Silicon path on arm64, the Intel path on x86_64):
+   ```
+   eval "$(/opt/homebrew/bin/brew shellenv)"
+   ```
+   (or `/usr/local/bin/brew shellenv` for Intel)
 
-**Important behavior:**
-- Check first whether each line is already present in the rc file (don't add duplicates)
-- After writing, source the rc file in the current session (`source ~/.zshrc`) so the verify step in Step 3.6 can find the binaries
+   For Claude Code:
+   ```
+   export PATH="$HOME/.local/bin:$PATH"
+   ```
 
-**Report** to the student: *"I've added Homebrew and Claude Code to your shell's PATH in both ~/.bash_profile and ~/.zshrc. New terminal windows will now find both automatically."*
+2. **Files that must be updated (BOTH, not just one):**
+   - `~/.bash_profile`
+   - `~/.zshrc`
+
+3. **After writing, READ BOTH FILES BACK and verify both lines are present in each.** Don't trust that the write worked. Use `cat ~/.bash_profile` and `cat ~/.zshrc` and confirm `brew shellenv` and `~/.local/bin` both appear in both files.
+
+4. **Source the files in your current subshell** so any subsequent commands you run see the new PATH:
+   ```
+   source ~/.bash_profile 2>/dev/null ; source ~/.zshrc 2>/dev/null
+   ```
+   (The `2>/dev/null` silences errors if a file doesn't exist; harmless.)
+
+5. **Report to the student** plainly:
+
+   > "I've added Homebrew and Claude Code to your shell's PATH in both `~/.zshrc` (your real Terminal's config) and `~/.bash_profile` (Claude Desktop's config). Both files now have both lines. New terminal windows will find brew and claude automatically, and Claude Desktop's bash subshell will see them too. The lines I added are reversible: if you ever want to undo them, just open the files in a text editor and delete the lines."
 
 ### Step 3.6 — Final verification (Mac)
 
-Run all four version commands:
-- `git --version`
-- `node --version`
-- `gh --version`
-- `claude --version`
+Verification has two parts because of the bash/zsh shell mismatch from rule 8: your subshell may NOT see the tools even after the rc files are updated, because your subshell doesn't reload rc files mid-session. The user's fresh Terminal is the source of truth.
 
-If any fail, pause and ask for a screenshot per Rule 5.
+**Part A — Read the rc files back and confirm both lines are present in both files.**
+
+Run `cat ~/.bash_profile` and `cat ~/.zshrc` and verify each contains:
+- A line with `brew shellenv`
+- A line with `~/.local/bin`
+
+If a line is missing in either file, the write didn't work; redo Step 3.5 for the missing piece. Don't skip this confirmation. The next step depends on the rc files being correct.
+
+**Part B — Tell the student to verify in a fresh Terminal window**, since their real shell is the actual source of truth:
+
+> "Open a fresh Terminal window (don't use the one we've been working in). On Mac: press Cmd + Space, type Terminal, press Enter. In that fresh window, run these one at a time:
+>
+>     git --version
+>     node --version
+>     gh --version
+>     claude --version
+>
+> All four should return version strings. If they all work, your install is verified end-to-end in your real shell, which is what you'll use for the workshop. Tell me when they all return version strings, or paste me any error you see."
+
+**Important: do NOT rely on `command -v <tool>` in your own subshell as the verification.** After the PATH fix, your subshell still won't see the tools because it doesn't reload rc files mid-session. The user's fresh Terminal output is the real signal.
+
+If all four work in their fresh Terminal, the install is verified. Move on to Step 5.
+
+If any fail in their fresh Terminal, that's a real install problem. Ask for a screenshot per Rule 5 and diagnose.
 
 **Report** with a summary like:
 
