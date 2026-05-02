@@ -54,7 +54,9 @@ On Windows, you'll see *"Do you want to allow this app to make changes to your d
 
 ## Verify your install (Mac users)
 
-If Claude Desktop is reporting tools as "missing" but they work fine in your real Terminal, or you just want to confirm everything is set up correctly, run a quick audit. This is a Mac-specific issue: Claude Desktop runs commands in a bash subshell, while your real Terminal is zsh, and the two shells have different startup files. If only one of those files is configured, tools will appear missing to one shell but not the other.
+If your tools work in one place but not another (Claude Desktop says they're missing while your real Terminal works fine, or vice versa), or you just want to confirm everything is set up correctly, run a quick audit.
+
+**The goal is for BOTH your shells to find your tools:** your real Terminal (zsh on modern macOS) AND Claude Desktop's bash subshell. The two shells have different startup files (`~/.zshrc` for zsh, `~/.bash_profile` for bash), and if only one of them is configured, tools will appear missing to whichever shell is unconfigured. The audit below catches that gap.
 
 ### Step 1: Audit (read your shell config files)
 
@@ -97,6 +99,32 @@ Then close Claude Desktop completely (`Cmd + Q`) and reopen it. Your tools will 
 The recovery commands are idempotent. If you run them and one of the lines is already in the file, you'll get a duplicate line, which is harmless. So when in doubt, run the recovery; you can't break anything.
 
 **Note for Apple Silicon vs Intel:** the commands above use `/opt/homebrew/bin/brew shellenv`, which is the Apple Silicon path. If you're on an Intel Mac, replace `/opt/homebrew/bin/brew` with `/usr/local/bin/brew` in the brew lines.
+
+## Verify your install (Windows users)
+
+Open a fresh PowerShell window (not the one that ran the install). Run these one at a time:
+
+```
+git --version
+```
+
+```
+node --version
+```
+
+```
+gh --version
+```
+
+```
+claude --version
+```
+
+All four should return version strings. If any fail, the install step for that specific tool didn't complete. Re-run the SETUP-PROMPT.md flow in Claude Desktop and it will detect what's still missing and finish the job.
+
+**Why a fresh PowerShell window:** PATH and environment variable updates from the install only take effect for new shells, not the one that ran the install. If you run the version commands in the same PowerShell that ran the install, you may see false "command not found" errors. Always open a fresh PowerShell window for verification.
+
+Windows doesn't have the bash/zsh shell mismatch issue Mac has, so a tool failing here means it's genuinely not installed (not "installed but invisible"). Re-running the install will fix it.
 
 ## If anything goes wrong
 
