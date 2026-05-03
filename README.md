@@ -52,6 +52,29 @@ When you type the password, macOS will show NOTHING as you type (no characters, 
 
 On Windows, you'll see *"Do you want to allow this app to make changes to your device?"* dialogs ~2 to 3 times during install. Click **Yes**. These are Windows confirming that `winget` is allowed to install software. No password is typed; just click Yes.
 
+### Windows: use Git Bash for Claude Code (NOT PowerShell or cmd)
+
+After install, when you sign in to Claude Code, you must use **Git Bash**. PowerShell and Command Prompt are not the right terminal for Claude Code on Windows.
+
+To open Git Bash: press the Windows key, type **Git Bash**, press Enter. The window opens with a `$` prompt; that's the right one.
+
+If you sign in via PowerShell or Command Prompt instead, you'll see an error like *"no stdin data received in 3s, proceeding without it"* or *"Input must be provided either through stdin or as a prompt argument when using --print"*. Close that window and open Git Bash instead.
+
+**One more Git Bash quirk on Windows:** even in Git Bash, plain `claude` may show that same stdin error because Git Bash on Windows has non-standard terminal handling. The fix is to prefix with `winpty`, which gives Claude Code a proper interactive terminal:
+
+```
+winpty claude
+```
+
+To make plain `claude` work without the prefix going forward, run this one time in Git Bash:
+
+```
+echo "alias claude='winpty claude'" >> ~/.bashrc
+source ~/.bashrc
+```
+
+After that, `claude` works in any new Git Bash window without needing `winpty`.
+
 ## Verify your install (Mac users)
 
 If your tools work in one place but not another (Claude Desktop says they're missing while your real Terminal works fine, or vice versa), or you just want to confirm everything is set up correctly, run a quick audit.

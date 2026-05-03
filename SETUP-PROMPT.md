@@ -434,10 +434,10 @@ Tell the student:
 
 > "Two final steps for you to do — these need real human interaction with your browser, so you do them yourself.
 >
-> **First, make sure you have a terminal open:**
+> **First, make sure you have the right terminal open:**
 >
 > - **Mac:** If your Terminal isn't open, press **Cmd + Space**, type **Terminal**, press Enter.
-> - **Windows:** If you don't have a terminal open, press the **Windows key**, type **Git Bash**, press Enter (Git Bash is the recommended terminal for Claude Code on Windows).
+> - **Windows: use Git Bash, NOT PowerShell or Command Prompt.** Claude Code on Windows needs a Unix-style terminal, and Git Bash is the one that ships with Git for Windows (which we just installed). Press the **Windows key**, type **Git Bash**, press Enter. The Git Bash window opens with a `$` prompt — that's the right one. If you accidentally open PowerShell or Command Prompt, close it and open Git Bash instead.
 >
 > **1. Sign in to GitHub with the GitHub CLI**
 >
@@ -448,18 +448,30 @@ Tell the student:
 >
 > *Why:* The CLI needs to know who you are so you can clone repos, push commits, and use GitHub features without typing your password every time. Workshop projects involve cloning the workshop's GitHub repos, so this needs to be done before you can pull them down.
 >
-> *What to expect:* It'll ask a few questions (GitHub.com, HTTPS, login with a web browser). Pick the defaults — just press Enter for each one. It'll give you a one-time code, open your browser, and you'll paste the code in to authorize. **No password is typed in the terminal** — the browser handles auth.
+> *What to expect:* It'll ask a few questions (GitHub.com, HTTPS, login with a web browser). Pick the defaults, just press Enter for each one. It'll give you a one-time code, open your browser, and you'll paste the code in to authorize. **No password is typed in the terminal**, the browser handles auth.
 >
 > **2. Sign in to Claude Code**
 >
-> In the same terminal, type this and press Enter:
+> [Mac users:] In the same terminal, type this and press Enter:
 > ```
 > claude
 > ```
 >
-> *Why:* Claude Code needs to connect to your Claude account so it can talk to Anthropic's API. Without this sign-in, Claude Code can't actually do anything useful — it'll just sit there.
+> [Windows users:] In Git Bash, type this and press Enter:
+> ```
+> winpty claude
+> ```
 >
-> *What to expect:* The first time you run `claude`, it'll prompt you to sign in via your browser. Authorize the connection. After that, you're done — `claude` will work normally for the rest of the workshop."
+> The `winpty` prefix is required on Git Bash for Windows because of how Git Bash handles interactive terminals. If you run plain `claude` and see an error about *"no stdin data received in 3s"* or *"Input must be provided either through stdin"*, that's the missing-winpty issue. Use `winpty claude` instead and it works. To make plain `claude` work going forward (so you don't have to type `winpty` every time), run this one time in Git Bash:
+> ```
+> echo "alias claude='winpty claude'" >> ~/.bashrc
+> source ~/.bashrc
+> ```
+> After that, plain `claude` works in any new Git Bash window.
+>
+> *Why:* Claude Code needs to connect to your Claude account so it can talk to Anthropic's API. Without this sign-in, Claude Code can't actually do anything useful, it'll just sit there.
+>
+> *What to expect:* The first time you run `claude` (or `winpty claude` on Windows), it'll prompt you to sign in via your browser. Authorize the connection. After that, you're done, `claude` will work normally for the rest of the workshop."
 
 ## Step 6 — Final summary message
 
