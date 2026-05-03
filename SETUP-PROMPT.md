@@ -196,7 +196,11 @@ You can include this instruction inline when handing off to a Terminal step, so 
 >
 > Come back to me and tell me when the install AND the two `eval` commands are done. I'll verify Homebrew is working and continue from there."
 
-**Wait** for the student to confirm. Then **verify** with `command -v brew` (should now return a path, since the eval command added brew to PATH for the current shell). Then **report** and continue.
+**Wait** for the student to confirm. Then **verify from Claude using full file paths, not only `command -v brew`** — because the student's Terminal and Claude Desktop's bash subshell don't share PATH yet. Run:
+- `test -x /opt/homebrew/bin/brew && /opt/homebrew/bin/brew --version` (Apple Silicon)
+- `test -x /usr/local/bin/brew && /usr/local/bin/brew --version` (Intel)
+
+If either full-path command returns a version, Homebrew is installed. If `command -v brew` still fails after that, treat it as installed-but-not-on-PATH and go to Step 3.5 to write the shellenv line. Do NOT reinstall Homebrew. Then **report** and continue.
 
 ### Step 3.3 — Git, Node.js, GitHub CLI (Claude Desktop runs these via brew)
 
