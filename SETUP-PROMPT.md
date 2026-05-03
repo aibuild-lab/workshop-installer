@@ -251,7 +251,13 @@ This **doesn't need a password** — it installs to `~/.local/bin/`, which is th
 
 After install, **expect Anthropic's installer to print a 'Setup notes' message** saying that `~/.local/bin` isn't on the user's PATH and that the user should add it. **You don't need to wait for the user to do that — you'll handle it in Step 3.5 below.**
 
-**Verify** by checking that `~/.local/bin/claude` exists (it won't be on PATH yet, that's expected). Don't try to run `claude --version` here — it'll fail because PATH isn't set yet. Save that for the final verify step.
+**Verify** by running this exact command:
+
+```
+test -x "$HOME/.local/bin/claude" && echo "installed"
+```
+
+If it prints `installed`, the binary is in place. If it prints nothing, the install didn't land — pause per Rule 5 and ask the student for a screenshot. Do NOT run `claude --version` here — it'll fail because PATH isn't set yet. Save that for the final verify step in Step 3.6.
 
 ### Step 3.5 — PATH fix for Homebrew and Claude
 
