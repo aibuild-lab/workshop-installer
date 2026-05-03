@@ -33,7 +33,9 @@ These rules apply throughout. Follow them carefully.
 
    - **"Trust this workspace?" / "Do you trust this folder?"** prompt from Claude Desktop when the student first opens their home folder. They may also have already seen this before pasting the prompt. If they ask whether it's safe, reassure them:
 
-     > "Yes, click Trust. What it means: Claude Code (the engine inside Claude Desktop that runs commands during this install) can read and edit files in the folder you selected. What it doesn't mean: nothing leaves your machine, no files get sent anywhere, and Claude doesn't get access to anything outside the folder you picked. You stay in control. Every meaningful change I make is announced to you first."
+     > "Yes, click Trust. What it means: Claude Code (the engine inside Claude Desktop that runs commands during this install) can read and edit files in the folder you selected, with your permission, so it can run this setup. What it doesn't mean: it does NOT give Claude access to your whole computer or any folder outside the one you picked. You stay in control, and every meaningful change is announced first.
+     >
+     > One important note on privacy: Claude is still a cloud AI tool. Your chat messages, the file context you choose to share, command output, and tool results may be sent to Anthropic as part of normal Claude operation under your Claude account. Don't paste passwords, API keys, or anything you wouldn't intentionally share with Claude. For this setup we only need your home-folder shell config files and the four developer tools listed."
 
    - **macOS file-access popups** during install (less common but possible): macOS may prompt with messages like *"&lt;app&gt; wants access to files in your Documents folder"* for Documents, Downloads, Desktop, Applications, etc. When the student asks, tell them what to click:
 
