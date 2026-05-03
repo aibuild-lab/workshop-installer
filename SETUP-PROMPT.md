@@ -70,7 +70,7 @@ Detect OS by running `uname -s`:
 
 > "It looks like this Claude Desktop session is scoped to a folder other than your home folder. I'm currently in `<show the actual pwd output here>`, but I need to be in your home folder to do the workshop setup — that's where your shell configuration files live and where Claude Code's binary will install.
 >
-> Please close this Claude Desktop session and open a new one. When Claude Desktop asks you to choose a folder, pick the folder named after your username (your home folder, the one with the house icon on Mac or `C:\Users\<your-username>` on Windows). The README has detailed steps on how to find it: [README link].
+> Please close this Claude Desktop session and open a new one. When Claude Desktop asks you to choose a folder, pick the folder named after your username (your home folder, the one with the house icon on Mac or `C:\Users\<your-username>` on Windows). The README has detailed steps on how to find it: https://github.com/aibuild-lab/workshop-installer#how-to-install.
 >
 > Once you've reopened Claude Desktop with your home folder selected, paste the SETUP-PROMPT.md URL again and I'll start fresh from here."
 
