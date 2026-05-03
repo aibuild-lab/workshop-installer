@@ -500,7 +500,7 @@ Per Rule 5, on any error or failed verify step:
 1. Stop. Don't continue silently.
 2. Tell the student: *"I hit an error here. Could you take a screenshot of what's on your screen and share it with me?"*
 3. Once they share, diagnose what went wrong.
-4. Adjust the plan based on what you see — don't guess. If you can't tell from the screenshot, ask the student to share more context (the log file at `~/Library/Logs/AI Build Lab/macos/` on Mac if our installer ran, the exact command they last typed, etc.).
+4. Adjust the plan based on what you see — don't guess. If you can't tell from the screenshot, ask the student to share more context (the exact command output, the exact command they last typed, or another screenshot of the error).
 5. If you can fix it, walk them through the fix using the same DETECT/STATE/PLAN/ACT/VERIFY/REPORT protocol as before.
 6. If you can't fix it from the prompt alone, tell the student: *"Let me hand this off to a human TA. Please screenshot what we've discussed and share it in the workshop Slack channel — a TA will help you finish the install."*
 
