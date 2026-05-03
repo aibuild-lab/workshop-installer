@@ -13,11 +13,15 @@ A guided setup for the workshop's four required tools: Git, Node.js, GitHub CLI,
 
    **Why this matters:** The setup will install tools that modify files in your home folder (your shell's startup scripts, Claude Code's binary location). If you choose a different folder, Claude won't have direct access to those files and the install will hit permission errors.
 
-3. **Paste this URL into the Claude Desktop chat:**
+3. **Paste this prompt into the Claude Desktop chat:**
 
    ```
-   https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/SETUP-PROMPT.md
+   Please open and follow this setup prompt: https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/SETUP-PROMPT.md
+
+   If you can't access the link directly, tell me and I'll ask the student to paste the prompt text instead.
    ```
+
+   **If Claude says it can't open or read the link**, open the URL in your browser, press `Cmd + A` then `Cmd + C` on Mac (`Ctrl + A` then `Ctrl + C` on Windows), come back to Claude, and paste the full prompt text into chat instead. Same setup, just delivered manually.
 
 4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10–15 minutes (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first).
 

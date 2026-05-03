@@ -33,7 +33,9 @@ These rules apply throughout. Follow them carefully.
 
    - **"Trust this workspace?" / "Do you trust this folder?"** prompt from Claude Desktop when the student first opens their home folder. They may also have already seen this before pasting the prompt. If they ask whether it's safe, reassure them:
 
-     > "Yes, click Trust. What it means: Claude Code (the engine inside Claude Desktop that runs commands during this install) can read and edit files in the folder you selected. What it doesn't mean: nothing leaves your machine, no files get sent anywhere, and Claude doesn't get access to anything outside the folder you picked. You stay in control. Every meaningful change I make is announced to you first."
+     > "Yes, click Trust. What it means: Claude Code (the engine inside Claude Desktop that runs commands during this install) can read and edit files in the folder you selected, with your permission, so it can run this setup. What it doesn't mean: it does NOT give Claude access to your whole computer or any folder outside the one you picked. You stay in control, and every meaningful change is announced first.
+     >
+     > One important note on privacy: Claude is still a cloud AI tool. Your chat messages, the file context you choose to share, command output, and tool results may be sent to Anthropic as part of normal Claude operation under your Claude account. Don't paste passwords, API keys, or anything you wouldn't intentionally share with Claude. For this setup we only need your home-folder shell config files and the four developer tools listed."
 
    - **macOS file-access popups** during install (less common but possible): macOS may prompt with messages like *"&lt;app&gt; wants access to files in your Documents folder"* for Documents, Downloads, Desktop, Applications, etc. When the student asks, tell them what to click:
 
@@ -68,7 +70,7 @@ Detect OS by running `uname -s`:
 
 > "It looks like this Claude Desktop session is scoped to a folder other than your home folder. I'm currently in `<show the actual pwd output here>`, but I need to be in your home folder to do the workshop setup — that's where your shell configuration files live and where Claude Code's binary will install.
 >
-> Please close this Claude Desktop session and open a new one. When Claude Desktop asks you to choose a folder, pick the folder named after your username (your home folder, the one with the house icon on Mac or `C:\Users\<your-username>` on Windows). The README has detailed steps on how to find it: [README link].
+> Please close this Claude Desktop session and open a new one. When Claude Desktop asks you to choose a folder, pick the folder named after your username (your home folder, the one with the house icon on Mac or `C:\Users\<your-username>` on Windows). The README has detailed steps on how to find it: https://github.com/aibuild-lab/workshop-installer#how-to-install.
 >
 > Once you've reopened Claude Desktop with your home folder selected, paste the SETUP-PROMPT.md URL again and I'll start fresh from here."
 
@@ -194,7 +196,11 @@ You can include this instruction inline when handing off to a Terminal step, so 
 >
 > Come back to me and tell me when the install AND the two `eval` commands are done. I'll verify Homebrew is working and continue from there."
 
-**Wait** for the student to confirm. Then **verify** with `command -v brew` (should now return a path, since the eval command added brew to PATH for the current shell). Then **report** and continue.
+**Wait** for the student to confirm. Then **verify from Claude using full file paths, not only `command -v brew`** — because the student's Terminal and Claude Desktop's bash subshell don't share PATH yet. Run:
+- `test -x /opt/homebrew/bin/brew && /opt/homebrew/bin/brew --version` (Apple Silicon)
+- `test -x /usr/local/bin/brew && /usr/local/bin/brew --version` (Intel)
+
+If either full-path command returns a version, Homebrew is installed. If `command -v brew` still fails after that, treat it as installed-but-not-on-PATH and go to Step 3.5 to write the shellenv line. Do NOT reinstall Homebrew. Then **report** and continue.
 
 ### Step 3.3 — Git, Node.js, GitHub CLI (Claude Desktop runs these via brew)
 
@@ -245,7 +251,13 @@ This **doesn't need a password** — it installs to `~/.local/bin/`, which is th
 
 After install, **expect Anthropic's installer to print a 'Setup notes' message** saying that `~/.local/bin` isn't on the user's PATH and that the user should add it. **You don't need to wait for the user to do that — you'll handle it in Step 3.5 below.**
 
-**Verify** by checking that `~/.local/bin/claude` exists (it won't be on PATH yet, that's expected). Don't try to run `claude --version` here — it'll fail because PATH isn't set yet. Save that for the final verify step.
+**Verify** by running this exact command:
+
+```
+test -x "$HOME/.local/bin/claude" && echo "installed"
+```
+
+If it prints `installed`, the binary is in place. If it prints nothing, the install didn't land — pause per Rule 5 and ask the student for a screenshot. Do NOT run `claude --version` here — it'll fail because PATH isn't set yet. Save that for the final verify step in Step 3.6.
 
 ### Step 3.5 — PATH fix for Homebrew and Claude
 
@@ -477,15 +489,19 @@ Tell the student:
 
 After everything is done and the student has run the two sign-in steps (or has been told to do them), end with a clean summary:
 
-> "🎉 Setup complete! You have:
+> "🎉 Install complete! You have:
 > - Git X.Y.Z
 > - Node.js vX.Y.Z
 > - GitHub CLI X.Y.Z
 > - Claude Code X.Y.Z
 >
-> All four are installed, verified, and on your PATH. You're workshop-ready.
+> All four are installed, version-verified, and on your PATH.
 >
-> If you hit any issues during the workshop, ask in the workshop Slack channel — the TAs will help you out. See you Sunday! We're gonna take this system to the next level!"
+> **Two sign-in steps still need to happen in your terminal before you're fully workshop-ready** (covered in Step 5 above):
+> 1. `gh auth login` — sign in to GitHub through your browser.
+> 2. `claude` (Mac) or `winpty claude` (Windows Git Bash) — sign in to Claude Code through your browser.
+>
+> Once both sign-ins are done, you're workshop-ready. If you hit any issues during the workshop, ask in the workshop Slack channel — the TAs will help you out. See you Sunday! We're gonna take this system to the next level!"
 
 ## When something fails
 
@@ -494,7 +510,7 @@ Per Rule 5, on any error or failed verify step:
 1. Stop. Don't continue silently.
 2. Tell the student: *"I hit an error here. Could you take a screenshot of what's on your screen and share it with me?"*
 3. Once they share, diagnose what went wrong.
-4. Adjust the plan based on what you see — don't guess. If you can't tell from the screenshot, ask the student to share more context (the log file at `~/Library/Logs/AI Build Lab/macos/` on Mac if our installer ran, the exact command they last typed, etc.).
+4. Adjust the plan based on what you see — don't guess. If you can't tell from the screenshot, ask the student to share more context (the exact command output, the exact command they last typed, or another screenshot of the error).
 5. If you can fix it, walk them through the fix using the same DETECT/STATE/PLAN/ACT/VERIFY/REPORT protocol as before.
 6. If you can't fix it from the prompt alone, tell the student: *"Let me hand this off to a human TA. Please screenshot what we've discussed and share it in the workshop Slack channel — a TA will help you finish the install."*
 
