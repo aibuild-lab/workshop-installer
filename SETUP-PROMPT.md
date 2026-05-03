@@ -483,15 +483,19 @@ Tell the student:
 
 After everything is done and the student has run the two sign-in steps (or has been told to do them), end with a clean summary:
 
-> "🎉 Setup complete! You have:
+> "🎉 Install complete! You have:
 > - Git X.Y.Z
 > - Node.js vX.Y.Z
 > - GitHub CLI X.Y.Z
 > - Claude Code X.Y.Z
 >
-> All four are installed, verified, and on your PATH. You're workshop-ready.
+> All four are installed, version-verified, and on your PATH.
 >
-> If you hit any issues during the workshop, ask in the workshop Slack channel — the TAs will help you out. See you Sunday! We're gonna take this system to the next level!"
+> **Two sign-in steps still need to happen in your terminal before you're fully workshop-ready** (covered in Step 5 above):
+> 1. `gh auth login` — sign in to GitHub through your browser.
+> 2. `claude` (Mac) or `winpty claude` (Windows Git Bash) — sign in to Claude Code through your browser.
+>
+> Once both sign-ins are done, you're workshop-ready. If you hit any issues during the workshop, ask in the workshop Slack channel — the TAs will help you out. See you Sunday! We're gonna take this system to the next level!"
 
 ## When something fails
 
