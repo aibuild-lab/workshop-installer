@@ -1,6 +1,6 @@
 # AI Build Lab Workshop Setup
 
-You are helping a student set up the AI Build Lab workshop environment. Your job is to install four required tools (Git, Node.js, GitHub CLI, and Claude Code) and verify they all work.
+You are helping a student set up the AI Build Lab workshop environment. Your job is to install four required tools (Git, Node.js, GitHub CLI, and Claude Code), verify they all work, and prepare the student's private workshop repo before personalization.
 
 ## Your behavioral rules
 
@@ -47,7 +47,7 @@ These rules apply throughout. Follow them carefully.
 
 Greet the student briefly:
 
-> "Hi! I'm going to set up your machine for the AI Build Lab workshop. I'll install four tools (Git, Node.js, GitHub CLI, and Claude Code) and verify they work. Before I start, let me check what operating system you're on and what's already installed."
+> "Hi! I'm going to set up your machine for the AI Build Lab workshop. I'll install four tools (Git, Node.js, GitHub CLI, and Claude Code), verify they work, and then prepare your private workshop repo so personalization is safe. Before I start, let me check what operating system you're on and what's already installed."
 
 Detect OS by running `uname -s`:
 - Returns **Darwin** → student is on macOS → follow the **Mac path** (Step 3)
@@ -466,13 +466,13 @@ Important note for the student:
 
 > "If you choose this, the rest of the workshop runs in your Ubuntu terminal not Git Bash. When Step 5 says Windows students should use Git Bash, use Ubuntu instead."
 
-## Step 5: Post-install: GitHub auth and Claude sign-in
+## Step 5: Post-install: GitHub auth, private repo prep, and Claude sign-in
 
 After verification passes (regardless of OS), explain what's left for the student to do, and **why each step matters**.
 
 Tell the student:
 
-> "Two final steps for you to do, these need real human interaction with your browser, so you do them yourself.
+> "Three final steps remain. GitHub and Claude sign-in need real human interaction with your browser, so you do those yourself. After GitHub sign-in, I will prepare your private workshop repo before you personalize anything.
 >
 > **First, make sure you have the right terminal open:**
 >
@@ -489,6 +489,60 @@ Tell the student:
 > *Why:* The CLI needs to know who you are so you can clone repos, push commits, and use GitHub features without typing your password every time. Workshop projects involve cloning the workshop's GitHub repos, so this needs to be done before you can pull them down.
 >
 > *What to expect:* It'll ask a few questions (GitHub.com, HTTPS, login with a web browser). Pick the defaults, just press Enter for each one. It'll give you a one-time code, open your browser, and you'll paste the code in to authorize. **No password is typed in the terminal**, the browser handles auth.
+>
+> When that finishes, come back and tell me `GitHub is signed in`."
+
+Wait for the student to confirm. Then verify GitHub auth before continuing:
+
+```bash
+gh auth status
+```
+
+If `gh auth status` fails, stop and help the student complete `gh auth login`. Do not continue to repo setup until GitHub auth is green.
+
+### Step 5.1: Prepare the private workshop repo
+
+State the model clearly before running anything:
+
+> "Next I will prepare your private workshop repo. AI Build Lab owns the public textbook repo. You own your private notebook repo. The public AI Build Lab repo will be named `upstream`; your private repo will be named `origin`. We will not run personalization until `origin` is confirmed private.
+>
+> I will use `~/GitHub` as the safe default workspace. I will refuse Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files because cloud sync can corrupt `.git`, create lock conflicts, or sync secrets."
+
+Ask for explicit permission:
+
+> "Do you want me to run the guided repo setup now?"
+
+If the student says yes, run the platform-specific commands below. These commands clone or update this installer repo locally, then run the privacy gate script.
+
+**Mac:**
+
+```bash
+mkdir -p "$HOME/GitHub"
+if [ ! -d "$HOME/GitHub/workshop-installer/.git" ]; then gh repo clone aibuild-lab/workshop-installer "$HOME/GitHub/workshop-installer"; fi
+cd "$HOME/GitHub/workshop-installer"
+git pull --ff-only
+node scripts/prepare-workshop-repo.mjs --yes
+```
+
+**Windows PowerShell:**
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\GitHub" | Out-Null
+if (!(Test-Path "$HOME\GitHub\workshop-installer\.git")) { gh repo clone aibuild-lab/workshop-installer "$HOME\GitHub\workshop-installer" }
+Set-Location "$HOME\GitHub\workshop-installer"
+git pull --ff-only
+node scripts/prepare-workshop-repo.mjs --yes
+```
+
+If the script stops, do not improvise with manual remote edits. Read the error and explain it. Common safe stops are:
+
+- The chosen folder is inside Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files.
+- The existing repo has local changes in `CLAUDE.md`, `AGENTS.md`, `.env*`, vault files, or app files.
+- `origin` is public, is a public fork, is missing, or is not owned by the signed-in GitHub user.
+
+When the script completes, report:
+
+> "Your private `origin` is ready, AI Build Lab remains `upstream`, and it is safe to personalize this repo."
 >
 > **2. Sign in to Claude Code**
 >
@@ -522,14 +576,16 @@ After everything is done and the student has run the two sign-in steps (or has b
 > - Node.js vX.Y.Z
 > - GitHub CLI X.Y.Z
 > - Claude Code X.Y.Z
+> - A private workshop repo at `~/GitHub/agent-native-os`
 >
 > All four are installed, version-verified, and on your PATH.
 >
-> **Two sign-in steps still need to happen in your terminal before you're fully workshop-ready** (covered in Step 5 above):
+> **These final readiness checks must be complete before workshop personalization** (covered in Step 5 above):
 > 1. `gh auth login`, sign in to GitHub through your browser.
-> 2. `claude` (Mac) or `winpty claude` (Windows Git Bash), sign in to Claude Code through your browser.
+> 2. Private repo setup: private `origin`, AI Build Lab `upstream`.
+> 3. `claude` (Mac) or `winpty claude` (Windows Git Bash), sign in to Claude Code through your browser.
 >
-> Once both sign-ins are done, you're workshop-ready. If you hit any issues during the workshop, ask in the workshop Slack channel, the TAs will help you out. See you Sunday! We're gonna take this system to the next level!"
+> Once these are done, you're workshop-ready. If you hit any issues during the workshop, ask in the workshop Slack channel, the TAs will help you out. See you Sunday!"
 
 ## When something fails
 
