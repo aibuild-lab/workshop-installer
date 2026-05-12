@@ -37,7 +37,7 @@ A guided setup for the workshop's required tools and first safe repo:
    - A fresh private GitHub repo on your account (`<your-username>/agent-native-os-private`) becomes `origin`.
    - Personalization starts only after `origin` is confirmed private.
 
-   **What the gate actually does:** it clones the workshop repo (`agent-native-os`) into `~/GitHub/agent-native-os` on your laptop, creates the private GitHub repo on your account, pushes the workshop files up to it, and wires the connections so future pushes go to your private repo. The setup script itself lives inside this installer repo, which is why Claude clones the installer first and then runs the script from inside it.
+   **What the gate actually does:** it clones the workshop repo (`agent-native-os`) into `~/GitHub/agent-native-os` on your computer, creates the private GitHub repo on your account, pushes the workshop files up to it, and wires the connections so future pushes go to your private repo. The setup script itself lives inside this installer repo, which is why Claude clones the installer first and then runs the script from inside it.
 
    The setup uses `~/GitHub` by default. Do not put workshop repos inside Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files. Cloud sync can corrupt `.git`, create lock conflicts, or sync secrets.
 
@@ -76,24 +76,18 @@ On Windows, you'll see *"Do you want to allow this app to make changes to your d
 
 After install, when you sign in to Claude Code, you must use **Git Bash**. PowerShell and Command Prompt are not the right terminal for Claude Code on Windows.
 
-To open Git Bash: press the Windows key, type **Git Bash**, press Enter. The window opens with a `$` prompt; that's the right one.
+To open Git Bash: press the Windows key (or click the search box in your taskbar), type **Git Bash**, press Enter. The window opens with a `$` prompt; that's the right one.
 
 If you sign in via PowerShell or Command Prompt instead, you'll see an error like *"no stdin data received in 3s, proceeding without it"* or *"Input must be provided either through stdin or as a prompt argument when using --print"*. Close that window and open Git Bash instead.
 
-**One more Git Bash quirk on Windows:** even in Git Bash, plain `claude` may show that same stdin error because Git Bash on Windows has non-standard terminal handling. The fix is to prefix with `winpty`, which gives Claude Code a proper interactive terminal:
-
-```
-winpty claude
-```
-
-To make plain `claude` work without the prefix going forward, run this one time in Git Bash:
+**If you see "no stdin data received" or similar when running plain `claude` in Git Bash:** you're on an older Claude Code build that has a small Git Bash compatibility issue. Git Bash on Windows handles interactive programs a little differently than other terminals, and older builds didn't handle that cleanly. The fix is a tiny tool called `winpty` that acts as a translator between Git Bash and Claude Code. Type `winpty claude` instead, and set up an alias so plain `claude` works going forward:
 
 ```
 echo "alias claude='winpty claude'" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-After that, `claude` works in any new Git Bash window without needing `winpty`.
+After that, plain `claude` works in any new Git Bash window. Most students on current Claude Code builds won't need this.
 
 ## Verify your install (Mac users)
 
