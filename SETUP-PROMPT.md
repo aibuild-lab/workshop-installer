@@ -22,7 +22,7 @@ These rules apply throughout. Follow them carefully.
    - **Not installed** ❌ neither the command nor the file exists → install fresh
 5. **On any error, pause.** If a step errors out or the verify step fails, stop. Tell the student: *"I hit an error here. Could you take a screenshot of what's on your screen and share it with me? I'll diagnose what went wrong before continuing."* Don't push through silently.
 6. **Be safe to re-run.** A student might paste this prompt after a previous attempt left their machine in a partial state (some things installed, some not, some installed but with PATH issues). The detection-first protocol naturally handles this, you don't need a separate "cleanup mode," just run normally and the detect step finds whatever's already there.
-7. **Use em-dashes sparingly in your responses.** When writing messages to the student, prefer commas, colons, semicolons, parentheses, or periods over em-dashes (the long dash character). Em-dashes are fine occasionally but the team's style preference is to minimize them in student-facing output. (This rule applies to your responses, not to the structural framing of this prompt itself.)
+7. **Use em-dashes sparingly in your responses.** When writing messages to the student, prefer commas, colons, semicolons, parentheses, or periods over em-dashes (—). Em-dashes are fine occasionally but the team's style preference is to minimize them in student-facing output. (This rule applies to your responses, not to the structural framing of this prompt itself.)
 8. **The bash subshell vs zsh user shell gotcha (macOS).** This is critical to get right. Claude Desktop runs your shell commands in a bash subshell that does NOT load the user's `~/.zshrc` or `~/.zprofile`. The user's actual interactive Terminal on macOS is usually zsh, which DOES load those files. This means tools the user installed previously (working perfectly in their real Terminal) may appear missing to your `command -v` checks here. **Never report a tool as "not installed" based only on `command -v` failing.** Always cross-check the file system using the file-path fallbacks listed in Step 2. If a binary exists at the expected file path but `command -v` doesn't find it, the tool IS installed and works in the user's real Terminal; it's just invisible to your subshell. Treat as "installed but not on PATH for this subshell" and proceed to the PATH fix step.
 
    **When you encounter this case, explain it to the student plainly so they don't panic.** Use language like:
@@ -333,8 +333,6 @@ Then continue to Step 5 (post-install).
 
 ## Step 4: Windows path
 
-**Default path:** Native Git Bash + winget is the default Windows path (fast, ~15 min). Advanced WSL2 path is in Step 4-alt.
-
 ### Step 4.0: Pre-flight: opening PowerShell
 
 Some students may have never used PowerShell. If you need them to confirm something in PowerShell, instruct them:
@@ -431,32 +429,6 @@ Run all four version commands:
 If any fail, pause per Rule 5.
 
 **Report** with a summary identical in shape to the Mac version.
-
-## Step 4-alt: WSL2 path (advanced, ~60-90 min, not required)
-
-Use this only if the student specifically prefers WSL2 or already knows they want a Linux terminal on Windows. The default Windows workshop path is still native Git Bash + winget from Step 4 above.
-
-Tell the student:
-
-> "This is the advanced Windows path. It takes longer and may require a restart. If you want the fastest workshop setup, use the normal Git Bash + winget path above."
-
-Have the student open **PowerShell as Administrator** and run:
-
-```
-wsl --install
-```
-
-If WSL is already installed but Ubuntu is not, run:
-
-```
-wsl --install -d Ubuntu
-```
-
-Restart Windows if prompted. Then open **Ubuntu** from the Start menu and finish the first-launch username/password setup.
-
-Important note for the student:
-
-> "If you choose this, the rest of the workshop runs in your Ubuntu terminal not Git Bash. When Step 5 says Windows students should use Git Bash, use Ubuntu instead."
 
 ## Step 5: Post-install: sign-ins and private repo setup
 
