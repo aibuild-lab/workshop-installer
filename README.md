@@ -6,7 +6,7 @@ A guided setup for the workshop's required tools and first safe repo:
 - Node.js
 - GitHub CLI
 - Claude Code
-- A private student copy of `agent-native-os`
+- A private GitHub repo at `<your-username>/agent-native-os-private`, seeded from `aibuild-lab/agent-native-os`
 
 ## How to install
 
@@ -33,9 +33,11 @@ A guided setup for the workshop's required tools and first safe repo:
 
 5. **Prepare your private workshop repo.** After GitHub sign-in, Claude will run the repo setup gate. The safe model is:
 
-   - AI Build Lab's public course repo stays connected as `upstream`.
-   - Your private GitHub repo becomes `origin`.
+   - AI Build Lab's public course repo (`aibuild-lab/agent-native-os`) stays connected as `upstream`.
+   - A fresh private GitHub repo on your account (`<your-username>/agent-native-os-private`) becomes `origin`.
    - Personalization starts only after `origin` is confirmed private.
+
+   **What the gate actually does:** it clones the workshop repo (`agent-native-os`) into `~/GitHub/agent-native-os` on your laptop, creates the private GitHub repo on your account, pushes the workshop files up to it, and wires the connections so future pushes go to your private repo. The setup script itself lives inside this installer repo, which is why Claude clones the installer first and then runs the script from inside it.
 
    The setup uses `~/GitHub` by default. Do not put workshop repos inside Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files. Cloud sync can corrupt `.git`, create lock conflicts, or sync secrets.
 
@@ -170,6 +172,8 @@ Windows doesn't have the bash/zsh shell mismatch issue Mac has, so a tool failin
 ## Prepare your private workshop repo manually
 
 The guided setup prompt normally handles this. If a TA asks you to run it manually, use these commands after `gh auth login` is working.
+
+**Why you clone the installer repo first:** the setup script (`prepare-workshop-repo.mjs`) lives inside this installer repo. You clone the installer to get the script, then run the script from inside it. The script handles cloning the actual workshop repo (`agent-native-os`) into a sibling folder and wiring up your private origin.
 
 ### macOS or Linux shell
 

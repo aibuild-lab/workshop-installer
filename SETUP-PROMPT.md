@@ -576,7 +576,7 @@ After everything is done and the student has run the two sign-in steps (or has b
 > - Node.js vX.Y.Z
 > - GitHub CLI X.Y.Z
 > - Claude Code X.Y.Z
-> - A private workshop repo at `~/GitHub/agent-native-os`
+> - A private workshop repo at `~/GitHub/agent-native-os` on your laptop, backed by `<your-username>/agent-native-os-private` on GitHub (with `aibuild-lab/agent-native-os` wired as `upstream` for cohort updates)
 >
 > All four are installed, version-verified, and on your PATH.
 >
