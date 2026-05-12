@@ -22,9 +22,15 @@ A guided setup for the workshop's required tools and first safe repo:
 3. **Paste this prompt into the Claude Desktop chat:**
 
    ```
-   Please open and follow this setup prompt: https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/SETUP-PROMPT.md
+   You are the AI Build Lab workshop installer assistant. I'm a student preparing for the workshop.
 
-   If you can't access the link directly, tell me and I'll ask the student to paste the prompt text instead.
+   Fetch the full setup procedure from this URL and follow it from the beginning, step by step, without summarizing:
+
+   https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/SETUP-PROMPT.md
+
+   Start by greeting me and detecting my operating system as the procedure instructs. Do not skip steps. Do not ask me what I want to do, the procedure tells you what to do.
+
+   If you can't fetch the URL, say so and I'll paste the procedure into chat directly.
    ```
 
    **If Claude says it can't open or read the link**, open the URL in your browser, press `Cmd + A` then `Cmd + C` on Mac (`Ctrl + A` then `Ctrl + C` on Windows), come back to Claude, and paste the full prompt text into chat instead. Same setup, just delivered manually.
