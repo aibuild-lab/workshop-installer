@@ -9,6 +9,8 @@ This guide walks through installing the four workshop tools (**Git**, **Node.js*
 
 Every step shows you the command, what to expect, and what to do if something goes wrong.
 
+After the four tools are installed and `gh auth login` is working, prepare your private workshop repo before you personalize anything. The safe model is: AI Build Lab's public repo is `upstream`; your private repo is `origin`.
+
 ---
 
 ## Quick reference (all commands in one place)
@@ -95,6 +97,30 @@ curl -fsSL https://claude.ai/install.sh | sh
 
 ```bash
 exec zsh
+```
+
+### Private workshop repo gate
+
+Run this only after `gh auth login` succeeds. Use `~/GitHub`; do not use Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files for Git repos.
+
+**macOS or Linux shell:**
+
+```bash
+mkdir -p "$HOME/GitHub"
+if [ ! -d "$HOME/GitHub/workshop-installer/.git" ]; then gh repo clone aibuild-lab/workshop-installer "$HOME/GitHub/workshop-installer"; fi
+cd "$HOME/GitHub/workshop-installer"
+git pull --ff-only
+node scripts/prepare-workshop-repo.mjs
+```
+
+**Windows PowerShell:**
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\GitHub" | Out-Null
+if (!(Test-Path "$HOME\GitHub\workshop-installer\.git")) { gh repo clone aibuild-lab/workshop-installer "$HOME\GitHub\workshop-installer" }
+Set-Location "$HOME\GitHub\workshop-installer"
+git pull --ff-only
+node scripts/prepare-workshop-repo.mjs
 ```
 
 ---

@@ -1,6 +1,12 @@
 # AI Build Lab Installer
 
-A guided setup for the workshop's four required tools: Git, Node.js, GitHub CLI, and Claude Code.
+A guided setup for the workshop's required tools and first safe repo:
+
+- Git
+- Node.js
+- GitHub CLI
+- Claude Code
+- A private GitHub repo at `<your-username>/agent-native-os-private`, seeded from `aibuild-lab/agent-native-os`
 
 ## How to install
 
@@ -16,14 +22,30 @@ A guided setup for the workshop's four required tools: Git, Node.js, GitHub CLI,
 3. **Paste this prompt into the Claude Desktop chat:**
 
    ```
-   Please open and follow this setup prompt: https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/SETUP-PROMPT.md
+   You are the AI Build Lab workshop installer assistant. I'm a student preparing for the workshop.
 
-   If you can't access the link directly, tell me and I'll ask the student to paste the prompt text instead.
+   Fetch the full setup procedure from this URL and follow it from the beginning, step by step, without summarizing:
+
+   https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/SETUP-PROMPT.md
+
+   Start by greeting me and detecting my operating system as the procedure instructs. Do not skip steps. Do not ask me what I want to do, the procedure tells you what to do.
+
+   If you can't fetch the URL, say so and I'll paste the procedure into chat directly.
    ```
 
    **If Claude says it can't open or read the link**, open the URL in your browser, press `Cmd + A` then `Cmd + C` on Mac (`Ctrl + A` then `Ctrl + C` on Windows), come back to Claude, and paste the full prompt text into chat instead. Same setup, just delivered manually.
 
-4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10–15 minutes (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first).
+4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10-15 minutes for the tools (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first), plus a few minutes to prepare your private workshop repo.
+
+5. **Prepare your private workshop repo.** After GitHub sign-in, Claude will run the repo setup gate. The safe model is:
+
+   - AI Build Lab's public course repo (`aibuild-lab/agent-native-os`) stays connected as `upstream`.
+   - A fresh private GitHub repo on your account (`<your-username>/agent-native-os-private`) becomes `origin`.
+   - Personalization starts only after `origin` is confirmed private.
+
+   **What the gate actually does:** it clones the workshop repo (`agent-native-os`) into `~/GitHub/agent-native-os` on your computer, creates the private GitHub repo on your account, pushes the workshop files up to it, and wires the connections so future pushes go to your private repo. The setup script itself lives inside this installer repo, which is why Claude clones the installer first and then runs the script from inside it.
+
+   The setup uses `~/GitHub` by default. Do not put workshop repos inside Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files. Cloud sync can corrupt `.git`, create lock conflicts, or sync secrets.
 
 ## What you'll see during install (and what to click)
 
@@ -60,24 +82,18 @@ On Windows, you'll see *"Do you want to allow this app to make changes to your d
 
 After install, when you sign in to Claude Code, you must use **Git Bash**. PowerShell and Command Prompt are not the right terminal for Claude Code on Windows.
 
-To open Git Bash: press the Windows key, type **Git Bash**, press Enter. The window opens with a `$` prompt; that's the right one.
+To open Git Bash: press the Windows key (or click the search box in your taskbar), type **Git Bash**, press Enter. The window opens with a `$` prompt; that's the right one.
 
 If you sign in via PowerShell or Command Prompt instead, you'll see an error like *"no stdin data received in 3s, proceeding without it"* or *"Input must be provided either through stdin or as a prompt argument when using --print"*. Close that window and open Git Bash instead.
 
-**One more Git Bash quirk on Windows:** even in Git Bash, plain `claude` may show that same stdin error because Git Bash on Windows has non-standard terminal handling. The fix is to prefix with `winpty`, which gives Claude Code a proper interactive terminal:
-
-```
-winpty claude
-```
-
-To make plain `claude` work without the prefix going forward, run this one time in Git Bash:
+**If you see "no stdin data received" or similar when running plain `claude` in Git Bash:** you're on an older Claude Code build that has a small Git Bash compatibility issue. Git Bash on Windows handles interactive programs a little differently than other terminals, and older builds didn't handle that cleanly. The fix is a tiny tool called `winpty` that acts as a translator between Git Bash and Claude Code. Type `winpty claude` instead, and set up an alias so plain `claude` works going forward:
 
 ```
 echo "alias claude='winpty claude'" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-After that, `claude` works in any new Git Bash window without needing `winpty`.
+After that, plain `claude` works in any new Git Bash window. Most students on current Claude Code builds won't need this.
 
 ## Verify your install (Mac users)
 
@@ -152,6 +168,34 @@ All four should return version strings. If any fail, the install step for that s
 **Why a fresh PowerShell window:** PATH and environment variable updates from the install only take effect for new shells, not the one that ran the install. If you run the version commands in the same PowerShell that ran the install, you may see false "command not found" errors. Always open a fresh PowerShell window for verification.
 
 Windows doesn't have the bash/zsh shell mismatch issue Mac has, so a tool failing here means it's genuinely not installed (not "installed but invisible"). Re-running the install will fix it.
+
+## Prepare your private workshop repo manually
+
+The guided setup prompt normally handles this. If a TA asks you to run it manually, use these commands after `gh auth login` is working.
+
+**Why you clone the installer repo first:** the setup script (`prepare-workshop-repo.mjs`) lives inside this installer repo. You clone the installer to get the script, then run the script from inside it. The script handles cloning the actual workshop repo (`agent-native-os`) into a sibling folder and wiring up your private origin.
+
+### macOS or Linux shell
+
+```bash
+mkdir -p "$HOME/GitHub"
+if [ ! -d "$HOME/GitHub/workshop-installer/.git" ]; then gh repo clone aibuild-lab/workshop-installer "$HOME/GitHub/workshop-installer"; fi
+cd "$HOME/GitHub/workshop-installer"
+git pull --ff-only
+node scripts/prepare-workshop-repo.mjs
+```
+
+### Windows PowerShell
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\GitHub" | Out-Null
+if (!(Test-Path "$HOME\GitHub\workshop-installer\.git")) { gh repo clone aibuild-lab/workshop-installer "$HOME\GitHub\workshop-installer" }
+Set-Location "$HOME\GitHub\workshop-installer"
+git pull --ff-only
+node scripts/prepare-workshop-repo.mjs
+```
+
+When it completes, you should see: private `origin` is ready, AI Build Lab remains `upstream`, and it is safe to personalize.
 
 ## If anything goes wrong
 
