@@ -63,7 +63,10 @@ async function main() {
       ],
       () => {
         fs.mkdirSync(workspaceRoot, { recursive: true });
-        run("gh", ["repo", "clone", DEFAULT_UPSTREAM, repoPath]);
+        const cloneResult = run("gh", ["repo", "clone", DEFAULT_UPSTREAM, repoPath], { allowFail: true });
+        if (cloneResult.status !== 0) {
+          handleCloneFailure(cloneResult, DEFAULT_UPSTREAM, repoPath);
+        }
       },
     );
     if (dryRun) {
@@ -272,6 +275,43 @@ function readGitHubUser() {
   const login = result.stdout.trim();
   if (!login) fail("Could not read your GitHub username with gh api user --jq .login.");
   return login;
+}
+
+function handleCloneFailure(result, upstream, target) {
+  const combined = `${result.stderr || ""} ${result.stdout || ""}`.toLowerCase();
+  const looksLikeAccessIssue =
+    combined.includes("404") ||
+    combined.includes("not found") ||
+    combined.includes("could not resolve") ||
+    combined.includes("repository not found");
+
+  if (!looksLikeAccessIssue) {
+    const detail = (result.stderr || "").trim() || (result.stdout || "").trim() || `exit code ${result.status}`;
+    fail(`Command failed: gh repo clone ${upstream} ${target}\n${detail}`);
+  }
+
+  const whoami = run("gh", ["api", "user", "--jq", ".login"], { allowFail: true });
+  const currentLogin = whoami.status === 0 ? whoami.stdout.trim() : "(could not detect)";
+
+  fail(
+    [
+      `Could not access ${upstream}.`,
+      "",
+      "This usually means one of three things:",
+      "",
+      "1. You have not been invited to the cohort yet. Check the email you used on the signup",
+      "   form for a GitHub invitation from AI Build Lab.",
+      "",
+      "2. You were invited but have not clicked Accept yet. Open the invitation email and click",
+      "   the green Accept button, then re-run this script.",
+      "",
+      "3. You are signed in to gh as a different GitHub account than the one on your signup form.",
+      `   You are currently signed in as: ${currentLogin}`,
+      "   To switch accounts: gh auth logout, then gh auth login as the correct account.",
+      "",
+      "If none of those apply, ping a TA in Slack with this error and your GitHub username.",
+    ].join("\n"),
+  );
 }
 
 function isGitRepo(dir) {
