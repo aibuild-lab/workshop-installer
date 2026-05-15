@@ -544,6 +544,7 @@ If the script stops, do not improvise with manual remote edits. Read the error a
 - The chosen folder is inside Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files.
 - The existing repo has local changes in `CLAUDE.md`, `AGENTS.md`, `.env*`, vault files, or app files.
 - `origin` is public, is a public fork, is missing, or is not owned by the signed-in GitHub user.
+- The student has not been invited to the cohort team yet, or was invited but has not accepted the GitHub invitation email. The script surfaces this with a 3-bullet message starting with "Could not access aibuild-lab/agent-native-os" that lists not-invited / not-accepted / wrong-account as the three causes. Walk the student through which of the three applies. If they say they were invited and accepted, double-check by asking them to confirm they clicked the green "Accept invitation" button in the email (not just opened it), and that they are signed in to `gh` as the same GitHub account that received the invitation.
 
 When the script completes, report:
 
