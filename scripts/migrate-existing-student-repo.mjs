@@ -120,7 +120,7 @@ function verifyCommand(command, versionArgs) {
 }
 
 function verifyGitHubAuth() {
-  const result = run("gh", ["auth", "status"], { allowFail: true });
+  const result = run("gh", ["api", "user", "--jq", ".login"], { allowFail: true });
   if (result.status !== 0) fail(["GitHub CLI is not signed in.", "Run: gh auth login", "Then rerun this migration."].join("\n"));
 }
 
