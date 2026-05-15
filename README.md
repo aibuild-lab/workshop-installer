@@ -8,6 +8,28 @@ A guided setup for the workshop's required tools and first safe repo:
 - Claude Code
 - A private GitHub repo at `<your-username>/agent-native-os-private`, seeded from `aibuild-lab/agent-native-os`
 
+## Cohort 1 students: migrate your existing repo
+
+If you joined Cohort 1 and already cloned `agent-native-os` while it was public, keep your existing folder. Run this migration instead of starting over:
+
+```bash
+mkdir -p "$HOME/GitHub"
+if [ ! -d "$HOME/GitHub/workshop-installer/.git" ]; then gh repo clone aibuild-lab/workshop-installer "$HOME/GitHub/workshop-installer"; fi
+cd "$HOME/GitHub/workshop-installer"
+git pull --ff-only
+node scripts/migrate-existing-student-repo.mjs
+```
+
+If the script says you need GitHub access, send the exact printed message to Gigawatt. After you are added to the AI Build Lab GitHub org and Cohort 1 team, rerun the same command.
+
+What the migration does:
+
+- keeps your existing local `agent-native-os` folder
+- creates or verifies your private `<your-username>/agent-native-os-private` repo
+- makes your private repo `origin`
+- keeps AI Build Lab's course repo as `upstream`
+- preserves old separate Cairns clones if you have them
+
 ## How to install
 
 1. **Open Claude Desktop.** If you don't have it, download from [claude.ai/download](https://claude.ai/download) and sign in with your Claude account.
@@ -39,11 +61,11 @@ A guided setup for the workshop's required tools and first safe repo:
 
 5. **Prepare your private workshop repo.** After GitHub sign-in, Claude will run the repo setup gate. The safe model is:
 
-   - AI Build Lab's public course repo (`aibuild-lab/agent-native-os`) stays connected as `upstream`.
+   - AI Build Lab's course repo (`aibuild-lab/agent-native-os`) stays connected as `upstream`.
    - A fresh private GitHub repo on your account (`<your-username>/agent-native-os-private`) becomes `origin`.
    - Personalization starts only after `origin` is confirmed private.
 
-   **What the gate actually does:** it clones the workshop repo (`agent-native-os`) into `~/GitHub/agent-native-os` on your computer, creates the private GitHub repo on your account, pushes the workshop files up to it, and wires the connections so future pushes go to your private repo. The setup script itself lives inside this installer repo, which is why Claude clones the installer first and then runs the script from inside it.
+   **What the gate actually does:** it clones the workshop repo (`agent-native-os`) into `~/GitHub/agent-native-os` on your computer, creates the private GitHub repo on your account, pushes the workshop files up to it, and wires the connections so future pushes go to your private repo. The setup script itself lives inside this installer repo, which is why Claude clones the installer first and then runs the script from inside it. If the course repo is private, you must accept your AI Build Lab GitHub org invite first.
 
    The setup uses `~/GitHub` by default. Do not put workshop repos inside Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files. Cloud sync can corrupt `.git`, create lock conflicts, or sync secrets.
 
