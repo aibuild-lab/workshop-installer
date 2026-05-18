@@ -6,6 +6,7 @@ A guided setup for the workshop's required tools and first safe repo:
 - Node.js
 - GitHub CLI
 - Claude Code
+- Infisical CLI
 - A private GitHub repo at `<your-username>/agent-native-os-private`, seeded from `aibuild-lab/agent-native-os`
 
 ## Cohort 1 students: migrate your existing repo
@@ -57,9 +58,11 @@ What the migration does:
 
    **If Claude says it can't open or read the link**, open the URL in your browser, press `Cmd + A` then `Cmd + C` on Mac (`Ctrl + A` then `Ctrl + C` on Windows), come back to Claude, and paste the full prompt text into chat instead. Same setup, just delivered manually.
 
-4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10-15 minutes for the tools (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first), plus a few minutes to prepare your private workshop repo.
+4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10-15 minutes for the tools (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first), plus a few minutes to sign in and prepare your private workshop repo.
 
-5. **Prepare your private workshop repo.** After GitHub sign-in, Claude will run the repo setup gate. The safe model is:
+5. **Sign in to Infisical CLI, then prepare your private workshop repo.** After GitHub and Claude Code sign-in, Claude will also walk you through `infisical login`. If you do not already have an Infisical account, create one at [app.infisical.com](https://app.infisical.com) first. The installer only verifies CLI login. It does **not** create an Infisical project and does **not** run `infisical init`; that happens later in the secrets module when you know which project or team workspace to use.
+
+   After sign-ins are complete, Claude will run the repo setup gate. The safe model is:
 
    - AI Build Lab's course repo (`aibuild-lab/agent-native-os`) stays connected as `upstream`.
    - A fresh private GitHub repo on your account (`<your-username>/agent-native-os-private`) becomes `origin`.
@@ -165,6 +168,18 @@ The recovery commands are idempotent. If you run them and one of the lines is al
 
 **Note for Apple Silicon vs Intel:** the commands above use `/opt/homebrew/bin/brew shellenv`, which is the Apple Silicon path. If you're on an Intel Mac, replace `/opt/homebrew/bin/brew` with `/usr/local/bin/brew` in the brew lines.
 
+After the shell config audit is clean, open a fresh Terminal window and run:
+
+```
+git --version
+node --version
+gh --version
+claude --version
+infisical --version
+```
+
+All five should return version strings.
+
 ## Verify your install (Windows users)
 
 Open a fresh PowerShell window (not the one that ran the install). Run these one at a time:
@@ -185,7 +200,11 @@ gh --version
 claude --version
 ```
 
-All four should return version strings. If any fail, the install step for that specific tool didn't complete. Re-run the SETUP-PROMPT.md flow in Claude Desktop and it will detect what's still missing and finish the job.
+```
+infisical --version
+```
+
+All five should return version strings. If any fail, the install step for that specific tool didn't complete. Re-run the SETUP-PROMPT.md flow in Claude Desktop and it will detect what's still missing and finish the job.
 
 **Why a fresh PowerShell window:** PATH and environment variable updates from the install only take effect for new shells, not the one that ran the install. If you run the version commands in the same PowerShell that ran the install, you may see false "command not found" errors. Always open a fresh PowerShell window for verification.
 
@@ -222,6 +241,12 @@ When it completes, you should see: private `origin` is ready, AI Build Lab remai
 ## If anything goes wrong
 
 See [MANUAL-INSTALL.md](MANUAL-INSTALL.md) for step-by-step manual install instructions covering both platforms, with every command, expected output, and common error fix.
+
+For Infisical specifically:
+
+- If `infisical` is not found after install, open a fresh terminal and run `infisical --version`. If it still fails, rerun the Infisical CLI install step in the manual guide.
+- If browser login does not complete, rerun `infisical login`.
+- If you do not have an Infisical project yet, that is okay. This installer only verifies CLI login. Project creation and `infisical init` happen later in the secrets module.
 
 ## Need help?
 

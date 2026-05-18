@@ -1,6 +1,6 @@
 # Manual Install Guide — AI Build Lab Workshop Tools
 
-This guide walks through installing the four workshop tools (**Git**, **Node.js**, **GitHub CLI**, **Claude Code**) one step at a time, on your own. Use it when:
+This guide walks through installing the five workshop tools (**Git**, **Node.js**, **GitHub CLI**, **Claude Code**, **Infisical CLI**) one step at a time, on your own. Use it when:
 
 - The automatic installer ([install.ps1 / install.sh](README.md#install--pick-the-one-for-your-operating-system)) failed for some reason
 - You want to understand exactly what's getting installed before you run anything
@@ -9,7 +9,7 @@ This guide walks through installing the four workshop tools (**Git**, **Node.js*
 
 Every step shows you the command, what to expect, and what to do if something goes wrong.
 
-After the four tools are installed and `gh auth login` is working, prepare your private workshop repo before you personalize anything. The safe model is: AI Build Lab's public repo is `upstream`; your private repo is `origin`.
+After the five tools are installed and `gh auth login`, `claude`, and `infisical login` are working, prepare your private workshop repo before you personalize anything. The safe model is: AI Build Lab's public repo is `upstream`; your private repo is `origin`.
 
 ---
 
@@ -47,6 +47,19 @@ irm https://claude.ai/install.ps1 | iex
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+```
+
+**Install Scoop (only if `scoop --version` doesn't work):**
+
+```powershell
+iwr -useb get.scoop.sh | iex
+```
+
+**Install Infisical CLI:**
+
+```powershell
+scoop bucket add org https://github.com/Infisical/scoop-infisical.git
+scoop install infisical
 ```
 
 **Add Claude to PATH (only if `claude --version` doesn't work in a fresh PowerShell window):**
@@ -93,6 +106,12 @@ brew install gh
 curl -fsSL https://claude.ai/install.sh | sh
 ```
 
+**Install Infisical CLI:**
+
+```bash
+brew install infisical/get-cli/infisical
+```
+
 **Reload your shell (only if `claude` isn't found after install):**
 
 ```bash
@@ -101,7 +120,7 @@ exec zsh
 
 ### Private workshop repo gate
 
-Run this only after `gh auth login` succeeds. Use `~/GitHub`; do not use Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files for Git repos.
+Run this only after `gh auth login`, Claude Code sign-in, and `infisical login` succeed. Use `~/GitHub`; do not use Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files for Git repos.
 
 **macOS or Linux shell:**
 
@@ -127,7 +146,7 @@ node scripts/prepare-workshop-repo.mjs
 
 ## Verify before you start
 
-These four commands tell you what's already installed. Run them first — anything that returns a real version is something you can skip.
+These five commands tell you what's already installed. Run them first — anything that returns a real version is something you can skip.
 
 ### Windows (PowerShell)
 
@@ -136,6 +155,7 @@ git --version
 node --version
 gh --version
 claude --version
+infisical --version
 ```
 
 ### macOS (Terminal)
@@ -145,6 +165,7 @@ git --version
 node --version
 gh --version
 claude --version
+infisical --version
 ```
 
 For each command:
@@ -160,7 +181,7 @@ These steps assume Windows 10 (build 2004+) or Windows 11. If you're on an older
 
 ### Before you start
 
-**The four tool installs are independent.** No tool requires another to be installed first — you can do Git, Node.js, GitHub CLI, and Claude Code in any order, and you can stop after any step. If you already have Git installed, you can skip that step entirely.
+**Most tool installs are independent.** You can do Git, Node.js, GitHub CLI, and Claude Code in any order, and you can stop after any step. Infisical CLI on Windows uses Scoop, so install Scoop first if you do not already have it. If you already have a tool installed, you can skip that step entirely.
 
 **Prerequisites:**
 
@@ -346,7 +367,40 @@ Get-ExecutionPolicy -Scope CurrentUser
 
 Expected output: `RemoteSigned`
 
-### Step 8 — Final verification
+### Step 8 — Install Scoop and Infisical CLI
+
+**Why:** Infisical is the secure secrets path for later team-scale project secrets. The CLI lets your terminal connect to Infisical without putting secret values in chat or GitHub. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project and does not run `infisical init`.
+
+**Install Scoop if needed (paste in PowerShell):**
+
+```powershell
+iwr -useb get.scoop.sh | iex
+```
+
+If that fails with a script execution policy error, rerun Step 7:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+```
+
+**Install Infisical CLI:**
+
+```powershell
+scoop bucket add org https://github.com/Infisical/scoop-infisical.git
+scoop install infisical
+```
+
+If Scoop says the `org` bucket already exists, continue to `scoop install infisical`.
+
+**Verify:**
+
+```powershell
+infisical --version
+```
+
+Expected output: `infisical version 0.x.x` or similar.
+
+### Step 9 — Final verification
 
 In a brand-new PowerShell window:
 
@@ -355,11 +409,12 @@ git --version
 node --version
 gh --version
 claude --version
+infisical --version
 ```
 
-All four should return real version strings. If any return "command not recognized," go back to that tool's step and check the Verify section.
+All five should return real version strings. If any return "command not recognized," go back to that tool's step and check the Verify section.
 
-### Step 9 — Sign in to GitHub and Claude
+### Step 10 — Sign in to GitHub, Claude, and Infisical
 
 **GitHub:**
 
@@ -379,6 +434,24 @@ claude
 
 Follow the sign-in flow.
 
+**Infisical CLI:**
+
+If you do not already have an Infisical account, create one first at https://app.infisical.com. Then in Git Bash or PowerShell:
+
+```bash
+infisical login
+```
+
+Follow the browser or one-time-code flow. Do not paste an Infisical password, API key, token, or secret value into Claude chat.
+
+Verify with:
+
+```bash
+infisical user
+```
+
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init` during baseline setup. Later, during the secrets module, you or a TA can create or join the correct Infisical project in the web app and then run `infisical init` from `~/GitHub/agent-native-os`.
+
 You're done.
 
 ---
@@ -389,7 +462,7 @@ These steps assume macOS 12 (Monterey) or newer. If you're on an Intel Mac, the 
 
 ### Before you start
 
-**The order matters slightly more on Mac than on Windows.** Apple Command Line Tools must be installed before Homebrew (Homebrew needs them to compile). Homebrew must be installed before Git/Node/gh (we install those via Homebrew). After Homebrew is in place, **Git, Node, gh, and Claude Code are all independent of each other** — install them in any order.
+**The order matters slightly more on Mac than on Windows.** Apple Command Line Tools must be installed before Homebrew (Homebrew needs them to compile). Homebrew must be installed before Git/Node/gh/Infisical (we install those via Homebrew). After Homebrew is in place, **Git, Node, gh, Infisical CLI, and Claude Code are all independent of each other** — install them in any order.
 
 **Prerequisites:**
 
@@ -430,7 +503,7 @@ Expected output: `/Library/Developer/CommandLineTools` or `/Applications/Xcode.a
 
 ### Step 2 — Install Homebrew
 
-**Why:** Homebrew is the standard package manager for macOS. We use it for git, node, and gh.
+**Why:** Homebrew is the standard package manager for macOS. We use it for git, node, gh, and Infisical CLI.
 
 **Command (paste in Terminal):**
 
@@ -549,7 +622,25 @@ Expected output: `2.1.123 (Claude Code)`
   Or close the Terminal window and open a new one.
 - The install fails partway through → check internet, then retry. The Anthropic install is well-tested but does fail occasionally on flaky connections.
 
-### Step 7 — Final verification
+### Step 7 — Install Infisical CLI via Homebrew
+
+**Why:** Infisical is the secure secrets path for later team-scale project secrets. The CLI lets your terminal connect to Infisical without putting secret values in chat or GitHub. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project and does not run `infisical init`.
+
+**Command:**
+
+```bash
+brew install infisical/get-cli/infisical
+```
+
+**Verify:**
+
+```bash
+infisical --version
+```
+
+Expected output: `infisical version 0.x.x` or similar.
+
+### Step 8 — Final verification
 
 In a brand-new Terminal window:
 
@@ -558,11 +649,12 @@ git --version
 node --version
 gh --version
 claude --version
+infisical --version
 ```
 
-All four should return real version strings.
+All five should return real version strings.
 
-### Step 8 — Sign in to GitHub and Claude
+### Step 9 — Sign in to GitHub, Claude, and Infisical
 
 **GitHub:**
 
@@ -579,6 +671,24 @@ claude
 ```
 
 Follow the sign-in flow.
+
+**Infisical CLI:**
+
+If you do not already have an Infisical account, create one first at https://app.infisical.com. Then in Terminal:
+
+```bash
+infisical login
+```
+
+Follow the browser or one-time-code flow. Do not paste an Infisical password, API key, token, or secret value into Claude chat.
+
+Verify with:
+
+```bash
+infisical user
+```
+
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init` during baseline setup. Later, during the secrets module, you or a TA can create or join the correct Infisical project in the web app and then run `infisical init` from `~/GitHub/agent-native-os`.
 
 You're done.
 
@@ -612,6 +722,36 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
 **Why it happens:** Anthropic's installer updated your shell rc but the current Terminal session hasn't reloaded it.
 
 **Fix:** Run `exec zsh` (or `exec bash` if you're on bash), or just close and reopen Terminal.
+
+### Error: `infisical: command not found`
+
+**Why it happens:** Infisical CLI either did not install, or the current terminal has not picked up the PATH update yet.
+
+**Fix on macOS:** Run `brew install infisical/get-cli/infisical`, then open a fresh Terminal window and run `infisical --version`.
+
+**Fix on Windows:** Run `scoop bucket add org https://github.com/Infisical/scoop-infisical.git`, then `scoop install infisical`, then open a fresh PowerShell or Git Bash window and run `infisical --version`.
+
+### Error: Scoop install is blocked by PowerShell execution policy
+
+**Why it happens:** PowerShell is still set to block user scripts.
+
+**Fix:** Run:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+```
+
+Then retry:
+
+```powershell
+iwr -useb get.scoop.sh | iex
+```
+
+### Infisical says you have no project
+
+**Why it happens:** Baseline setup only installs and signs in to Infisical CLI. It does not create a project or run `infisical init`.
+
+**Fix:** Nothing is broken. Continue the workshop setup. Later, during the secrets module, create or join the correct Infisical project in the web app, then run `infisical init` from `~/GitHub/agent-native-os`.
 
 ### Error: `winget: command not found` (Windows)
 
