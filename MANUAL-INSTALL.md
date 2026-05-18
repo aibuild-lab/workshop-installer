@@ -142,6 +142,49 @@ git pull --ff-only
 node scripts/prepare-workshop-repo.mjs
 ```
 
+### Infisical-only setup after the main installer
+
+Use this if you already completed the main workshop setup and now want to add Infisical, or if you previously used 1Password and want Infisical available for future team-scale secrets work.
+
+This is not an automatic 1Password migration. Installing Infisical does not move vault items out of 1Password, delete any 1Password data, or rewrite `op://` references in Claude Code, MCP, app, or shell config files. Keep existing 1Password entries until you have deliberately moved each secret and updated the corresponding config.
+
+If you do not already have an Infisical account, create one first at https://app.infisical.com.
+
+**Mac:**
+
+```bash
+brew install infisical/get-cli/infisical
+infisical --version
+infisical login
+infisical user
+```
+
+**Windows PowerShell:**
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+iwr -useb get.scoop.sh | iex
+scoop bucket add org https://github.com/Infisical/scoop-infisical.git
+scoop install infisical
+infisical --version
+infisical login
+infisical user
+```
+
+If Scoop says the `org` bucket already exists, continue to `scoop install infisical`.
+
+Stop after `infisical user` unless a TA or the secrets module tells you which Infisical project to create or join. Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init` until you are inside the correct project folder and know which Infisical project should be linked.
+
+When you are ready to move a specific secret from 1Password to Infisical later:
+
+1. Create or join the correct Infisical project in the web app.
+2. Add the secret value in Infisical.
+3. Update the relevant local tool or app config to read from Infisical instead of the old `op://` reference.
+4. Verify the tool works without printing the secret.
+5. Only then remove or archive the old 1Password item if you no longer need it.
+
+Do not paste secret values, API keys, Infisical tokens, or 1Password item contents into Claude chat while doing this.
+
 ---
 
 ## Verify before you start

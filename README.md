@@ -238,6 +238,35 @@ node scripts/prepare-workshop-repo.mjs
 
 When it completes, you should see: private `origin` is ready, AI Build Lab remains `upstream`, and it is safe to personalize.
 
+## Add Infisical later without rerunning setup
+
+If you already completed the main setup and only need to add Infisical now, do not rerun the full installer. Install and sign in to the Infisical CLI directly.
+
+**Mac:**
+
+```bash
+brew install infisical/get-cli/infisical
+infisical --version
+infisical login
+infisical user
+```
+
+**Windows PowerShell:**
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+iwr -useb get.scoop.sh | iex
+scoop bucket add org https://github.com/Infisical/scoop-infisical.git
+scoop install infisical
+infisical --version
+infisical login
+infisical user
+```
+
+If you do not already have an Infisical account, create one first at [app.infisical.com](https://app.infisical.com). Stop after `infisical user` unless a TA or the secrets module tells you which project to create or join. Do not run `infisical init` yet, and do not run `infisical user get token`.
+
+If you are switching from 1Password, this only adds Infisical for future secrets work. It does not move existing 1Password items or rewrite any `op://` references in your tool configs.
+
 ## If anything goes wrong
 
 See [MANUAL-INSTALL.md](MANUAL-INSTALL.md) for step-by-step manual install instructions covering both platforms, with every command, expected output, and common error fix.
