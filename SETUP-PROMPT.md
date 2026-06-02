@@ -617,9 +617,36 @@ node "$hooks\install.mjs"
 
 The guard takes effect the **next time Claude Code starts** (it reads settings at session start). Tell the student:
 
-> "Secrets guard installed. It kicks in next time you start Claude Code. If you ever want to see it work, ask Claude Code to run `infisical secrets --plain` — it will refuse, instead of dumping your vault. That refusal is the guard doing its job."
+> "Secrets guard installed. It kicks in the next time you start Claude Code. In the next step we'll start Claude Code together and watch it refuse a real secret-dumping command, so you can see it working."
 
-Do not try to verify the block here in this Claude Desktop session — the guard governs **Claude Code**, which the student runs separately.
+Do not try to verify the block here in this Claude Desktop session. The guard governs **Claude Code** (which the student runs separately), not Claude Desktop, so it cannot fire here. The next step walks the student through verifying it inside Claude Code.
+
+### Step 5.3.6: Confirm the guard actually works
+
+The guard protects **Claude Code**, not this Claude Desktop session, so it cannot be tested from here. The student has to watch it fire inside Claude Code. Do not skip this: a guard that installed but is not firing (a missing Node runtime, a path that did not resolve, an old session that never reloaded settings) looks identical to a working one right up until the day it matters. This step turns "installed" into "proven," and it doubles as a friendly first run of Claude Code for the student.
+
+Walk them through it one line at a time. Tell the student:
+
+> "Last thing, and it is a good one: let's watch the guard say no. This is also your first real run of Claude Code.
+>
+> 1. Open **Git Bash** (on Windows) or your **Terminal** (on Mac), type `claude`, and press Enter. You already signed in earlier, so it will just open. If you still have Claude Code running from before, close it and start it fresh, because the guard loads when Claude Code starts.
+> 2. When you see the prompt, type this exactly and press Enter:
+>    `Run the command: infisical secrets --plain`
+> 3. Claude Code should **refuse** to run it and mention a secrets guard, instead of printing anything.
+>
+> Paste back what it says. Don't worry, this is completely safe: the guard stops the command before it runs, so there is nothing to leak even if you tried. We are just watching it do its job."
+
+**Wait** for the student to report back, then:
+
+- **It refused and mentioned the secrets guard** -> success. Tell them: *"That is exactly right. That refusal is the guard working. From now on Claude Code cannot dump your secrets to the screen, in any project, not just this one."* Continue to Step 5.4.
+- **It ran the command, printed output, or did not refuse** -> the hook is not firing and the student is not protected. Fix it before continuing:
+  1. Check Node: `node --version` should print a version in the student's shell.
+  2. Check the files landed: `ls ~/.claude/hooks/` should list `secrets-guard.js` and `secrets-tripwire.js`.
+  3. Confirm they opened a **fresh** Claude Code session after Step 5.3.5. An older session will not have the guard loaded.
+  4. Re-run `node ~/.claude/hooks/install.mjs`, have them fully restart Claude Code, and retry the test.
+- **A different error** (for example `infisical: command not found`) -> that is a separate issue from the guard. Resolve it, then retry so you still confirm the refusal.
+
+Do not advance to Step 5.4 until the student has reported the refusal. This is the only point where the entire secrets-guard setup is verified end to end.
 
 ### Step 5.4: Prepare the private workshop repo
 

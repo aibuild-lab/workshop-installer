@@ -16,7 +16,12 @@ class deterministically, whether or not the model "remembers." (Anthropic issue 
   language-eval exfil, `docker compose config`. **Allows** the legitimate forms: `op run` /
   `infisical run` (runtime injection), single-ref `op read` / `bw get`, `op whoami`,
   `printenv PATH`, `env FOO=bar cmd`, `.env.example`. Vault-agnostic. Written in Node (a Claude
-  Code dependency) so it runs unchanged on Mac and Windows/Git Bash.
+  Code dependency) so it runs unchanged on Mac and Windows/Git Bash. It guards **both** the Bash
+  tool and the PowerShell tool: on Windows, Claude Code exposes a separate PowerShell tool, so
+  the guard also blocks `Get-ChildItem Env:` (and `gci`/`ls`/`-Path`/piped forms),
+  `[Environment]::GetEnvironmentVariables()`, bare `Get-Variable`/`gv`, and
+  `Get-Content`/`gc`/`type`/`Select-String` reads of secret files, while allowing `$env:NAME`
+  single reads and `ls $env:VAR` path uses.
 - **`secrets-tripwire.js`** — `PostToolUse` hook. Scans tool output for secret-shaped strings
   and warns the model not to echo them + logs a dated near-miss (names only, never values).
   Detection, not redaction — it cannot un-send output already shown.
@@ -25,8 +30,9 @@ class deterministically, whether or not the model "remembers." (Anthropic issue 
 
 ## Validation
 
-`secrets-guard.js` passes a 32-case allow/block table (19 block, 13 allow). See
-`Secrets-Guard-Hook-Plan.md` in Wade's workbench for the table and the full plan.
+`secrets-guard.js` passes a 63-case allow/block table (Bash 32, PowerShell 31), validated on
+both macOS and Windows. See `Secrets-Guard-Hook-Plan.md` in Wade's workbench for the table and
+the full plan.
 
 ## Reviewer notes
 

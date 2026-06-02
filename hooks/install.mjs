@@ -47,15 +47,23 @@ const DENY = [
 settings.permissions ??= {};
 settings.permissions.deny = Array.from(new Set([...(settings.permissions.deny ?? []), ...DENY]));
 
-// 2. hooks.PreToolUse / PostToolUse — append our Bash matcher group if not already present.
+// 2. hooks.PreToolUse / PostToolUse — append our matcher group if not already present.
+// Matcher covers both Bash and PowerShell: on Windows, Claude Code exposes a separate
+// PowerShell tool that a Bash-only matcher would never inspect.
 settings.hooks ??= {};
 function ensureHook(event, script) {
   settings.hooks[event] ??= [];
   const already = JSON.stringify(settings.hooks[event]).includes(script);
   if (!already) {
+    // Absolute, quoted, forward-slash path resolved at install time. A bare `~` only
+    // expands in Git Bash; if Claude Code runs the hook through PowerShell or cmd, `~`
+    // would pass literally to node and the guard would silently fail to fire (the worst
+    // outcome for a security control: it looks installed but protects nothing). Forward
+    // slashes work for node on Windows too, and quoting handles usernames with spaces.
+    const hookPath = path.join(hooksDir, script).split(path.sep).join('/');
     settings.hooks[event].push({
-      matcher: 'Bash',
-      hooks: [{ type: 'command', command: `node ~/.claude/hooks/${script}` }],
+      matcher: 'Bash|PowerShell',
+      hooks: [{ type: 'command', command: `node "${hookPath}"` }],
     });
     return true;
   }
