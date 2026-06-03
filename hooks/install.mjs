@@ -43,6 +43,7 @@ if (fs.existsSync(settingsPath)) {
 const DENY = [
   'Read(.env)', 'Read(**/.env)', 'Read(**/.env.local)', 'Read(**/.env.*.local)',
   'Read(**/*.pem)', 'Read(**/id_rsa)', 'Read(**/id_ed25519)', 'Read(**/credentials*)',
+  'Read(**/.env.*)', 'Read(**/secrets/**)',
 ];
 settings.permissions ??= {};
 settings.permissions.deny = Array.from(new Set([...(settings.permissions.deny ?? []), ...DENY]));
