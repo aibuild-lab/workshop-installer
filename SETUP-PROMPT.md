@@ -582,6 +582,72 @@ Tell the student:
 
 > "Infisical CLI is signed in. We are deliberately stopping before project setup. Later, during the secrets module, you or a TA can create or join the correct Infisical project in the web app, then run `infisical init` from `~/GitHub/agent-native-os` to link that local repo to the right project."
 
+### Step 5.3.5: Install the secrets guard
+
+Now that a secrets manager is connected, install a safety guard so Claude Code can never accidentally print the student's secrets to the screen. Tell the student:
+
+> "Last safety step: I'm installing a guard that runs automatically before every command Claude Code tries. If a command would dump your API keys or passwords to the screen — things like `infisical secrets --plain`, `env`, or reading a `.env` file — the guard refuses it. This works no matter which password manager you use (Infisical, 1Password, Bitwarden). Written rules can be forgotten; this can't."
+
+This installs two hooks into the student's **user-level** Claude Code settings (`~/.claude/settings.json`), so the guard protects them in **every** project, not just the workshop repo. Run the block for the detected OS.
+
+**Mac:**
+
+```bash
+mkdir -p ~/.claude/hooks
+BASE="https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/hooks"
+curl -fsSL "$BASE/secrets-guard.js"    -o ~/.claude/hooks/secrets-guard.js
+curl -fsSL "$BASE/secrets-tripwire.js" -o ~/.claude/hooks/secrets-tripwire.js
+curl -fsSL "$BASE/install.mjs"         -o ~/.claude/hooks/install.mjs
+node ~/.claude/hooks/install.mjs
+```
+
+**Windows PowerShell:**
+
+```powershell
+$hooks = "$HOME\.claude\hooks"
+New-Item -ItemType Directory -Force -Path $hooks | Out-Null
+$base = "https://raw.githubusercontent.com/aibuild-lab/workshop-installer/main/hooks"
+foreach ($f in "secrets-guard.js","secrets-tripwire.js","install.mjs") {
+  Invoke-WebRequest -UseBasicParsing "$base/$f" -OutFile "$hooks\$f"
+}
+node "$hooks\install.mjs"
+```
+
+`install.mjs` is idempotent (safe to re-run) and merges into `~/.claude/settings.json` without clobbering existing keys; it backs the file up first. It should print `Secrets guard installed.` If it reports `~/.claude/settings.json exists but is not valid JSON`, stop and fix that file before continuing — do not delete it blindly.
+
+The guard takes effect the **next time Claude Code starts** (it reads settings at session start). Tell the student:
+
+> "Secrets guard installed. It kicks in the next time you start Claude Code. In the next step we'll start Claude Code together and watch it refuse a real secret-dumping command, so you can see it working."
+
+Do not try to verify the block here in this Claude Desktop session. The guard governs **Claude Code** (which the student runs separately), not Claude Desktop, so it cannot fire here. The next step walks the student through verifying it inside Claude Code.
+
+### Step 5.3.6: Confirm the guard actually works
+
+The guard protects **Claude Code**, not this Claude Desktop session, so it cannot be tested from here. The student has to watch it fire inside Claude Code. Do not skip this: a guard that installed but is not firing (a missing Node runtime, a path that did not resolve, an old session that never reloaded settings) looks identical to a working one right up until the day it matters. This step turns "installed" into "proven," and it doubles as a friendly first run of Claude Code for the student.
+
+Walk them through it one line at a time. Tell the student:
+
+> "Last thing, and it is a good one: let's watch the guard say no. This is also your first real run of Claude Code.
+>
+> 1. Open **Git Bash** (on Windows) or your **Terminal** (on Mac), type `claude`, and press Enter. You already signed in earlier, so it will just open. If you still have Claude Code running from before, close it and start it fresh, because the guard loads when Claude Code starts.
+> 2. When you see the prompt, type this exactly and press Enter:
+>    `Run the command: infisical secrets --plain`
+> 3. Claude Code should **refuse** to run it and mention a secrets guard, instead of printing anything.
+>
+> Paste back what it says. Don't worry, this is completely safe: the guard stops the command before it runs, so there is nothing to leak even if you tried. We are just watching it do its job."
+
+**Wait** for the student to report back, then:
+
+- **It refused and mentioned the secrets guard** -> success. Tell them: *"That is exactly right. That refusal is the guard working. From now on Claude Code cannot dump your secrets to the screen, in any project, not just this one."* Continue to Step 5.4.
+- **It ran the command, printed output, or did not refuse** -> the hook is not firing and the student is not protected. Fix it before continuing:
+  1. Check Node: `node --version` should print a version in the student's shell.
+  2. Check the files landed: `ls ~/.claude/hooks/` should list `secrets-guard.js` and `secrets-tripwire.js`.
+  3. Confirm they opened a **fresh** Claude Code session after Step 5.3.5. An older session will not have the guard loaded.
+  4. Re-run `node ~/.claude/hooks/install.mjs`, have them fully restart Claude Code, and retry the test.
+- **A different error** (for example `infisical: command not found`) -> that is a separate issue from the guard. Resolve it, then retry so you still confirm the refusal.
+
+Do not advance to Step 5.4 until the student has reported the refusal. This is the only point where the entire secrets-guard setup is verified end to end.
+
 ### Step 5.4: Prepare the private workshop repo
 
 After GitHub, Claude Code, and Infisical CLI sign-ins are confirmed, set up the student's private workshop repo. State the model clearly before running anything:
