@@ -689,7 +689,9 @@ If the script stops, do not improvise with manual remote edits. Read the error a
 
 When the script completes, report:
 
-> "Your private workshop repo is ready! Your private `origin` is set up on your GitHub account, AI Build Lab's course repo is wired as `upstream` for cohort updates, and your local workshop folder is at `~/GitHub/agent-native-os`. You're safe to personalize this repo now."
+> "Your private workshop repo is ready! Your private `origin` is set up on your GitHub account, AI Build Lab's course repo is wired as `upstream` for cohort updates, and your local workshop folder is at `~/GitHub/agent-native-os`. You're safe to personalize this repo now.
+>
+> Important Vercel rule for later: when a build tells you to deploy, use Vercel -> Add New Project -> import your own fork or private workshop repo (`<your-username>/agent-native-os` or the private repo this installer created, `<your-username>/agent-native-os-private`), not the AI Build Lab / `aibuild-lab` org repo. Don't import the shared AI Build Lab repo -- importing an org repo forces Vercel Pro ($20) and auto-adds the instructors to your project. Your own fork deploys free and stays yours."
 
 ### Step 5.5: Cohort 1 migration path
 
@@ -732,6 +734,8 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > **Your private GitHub repo:** `<your-username>/agent-native-os-private`. This is where your changes get pushed. Only you can see it. The cohort source stays at `aibuild-lab/agent-native-os` and you'll pull updates from there when AI Build Lab ships new material.
 >
+> **Vercel deploy rule:** Later, when a capstone or agent build asks you to deploy, use Vercel -> Add New Project -> import your own fork/private repo (`<your-username>/agent-native-os` or `<your-username>/agent-native-os-private`), not the AI Build Lab / `aibuild-lab` org repo. Don't import the shared AI Build Lab repo -- importing an org repo forces Vercel Pro ($20) and auto-adds the instructors to your project. Your own fork deploys free and stays yours.
+>
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
 > **Your next step before the workshop: run `/personalize`**
@@ -764,6 +768,8 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 > The folder lives at `C:\Users\<your-username>\GitHub\agent-native-os`. To open it in File Explorer: open This PC, then Local Disk (C:), then Users, then your username folder, then GitHub, then agent-native-os. That's where all your workshop work will happen.
 >
 > **Your private GitHub repo:** `<your-username>/agent-native-os-private`. This is where your changes get pushed. Only you can see it. The cohort source stays at `aibuild-lab/agent-native-os` and you'll pull updates from there when AI Build Lab ships new material.
+>
+> **Vercel deploy rule:** Later, when a capstone or agent build asks you to deploy, use Vercel -> Add New Project -> import your own fork/private repo (`<your-username>/agent-native-os` or `<your-username>/agent-native-os-private`), not the AI Build Lab / `aibuild-lab` org repo. Don't import the shared AI Build Lab repo -- importing an org repo forces Vercel Pro ($20) and auto-adds the instructors to your project. Your own fork deploys free and stays yours.
 >
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
