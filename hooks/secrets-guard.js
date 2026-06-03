@@ -3,12 +3,11 @@
 // PreToolUse hook. Blocks the "dump a secret to stdout" class before it runs.
 // Cross-platform: runs on Node (a Claude Code dependency) — Mac, Mac Mini, Windows.
 // Covers BOTH the Bash tool and the PowerShell tool (Windows uses both). Bash rules
-// are byte-identical to the Mac-validated v1; PowerShell rules are additive.
+// include the repo-level block-secret-print parity checks; PowerShell rules are additive.
 // Vault-agnostic: covers 1Password (op), Infisical, Bitwarden (bw), and the
 // universal leaks (env / cat .env / language-eval) that no vault choice prevents.
-// Allows runtime injection (op run / infisical run) and single-ref reads (op read / bw get).
-// Single-secret bare reads are caught by the PostToolUse tripwire, not blocked here,
-// so normal workflows never get a false "denied".
+// Allows runtime injection (op run / infisical run) unless the wrapped command is
+// itself an env dump. Blocks raw op reads; masked first4 checks remain allowed.
 
 const fs = require('fs');
 
@@ -34,11 +33,48 @@ const isPS = input.tool_name === 'PowerShell';
 const c = (input.tool_input && input.tool_input.command) || '';
 if (!c) process.exit(0);
 
+function words(segment) {
+  return (segment.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [])
+    .map(w => w.replace(/^(['"])(.*)\1$/, '$2'));
+}
+
+function commandName(word) {
+  return (word || '').split(/[\\/]/).pop().toLowerCase();
+}
+
+function isSecretVar(name) {
+  const cleaned = String(name || '')
+    .trim()
+    .replace(/^[$%{]+/, '')
+    .replace(/[}%]+$/, '')
+    .replace(/^env:/i, '')
+    .split('=')[0];
+  if (!cleaned) return false;
+  const upper = cleaned.toUpperCase();
+  const parts = upper.split(/[^A-Z0-9]+/).filter(Boolean);
+  return parts.some(part => ['KEY', 'TOKEN', 'SECRET'].includes(part)) ||
+    upper === 'APIKEY' || upper === 'TOKEN' || upper === 'SECRET' ||
+    upper.endsWith('_KEY') || upper.endsWith('_TOKEN') || upper.endsWith('_SECRET');
+}
+
+function secretEnvRefs(segment) {
+  return [...segment.matchAll(/\$(?:env:)?\{?([A-Za-z_][A-Za-z0-9_]*)\}?/gi)]
+    .map(match => match[1]);
+}
+
+function isMaskedClause(clause) {
+  return /\|\s*head\s+-c\s*4(?:\D|$)/i.test(clause);
+}
+
 // --- ALLOWLIST: runtime injection. Secrets go process->process, never to stdout. ---
+// But do not allow a runtime-injected process to be an env dump.
+if (/\b(infisical|op)\s+run\b[^\n;&|]*--\s*(?:['"]?\s*)?(?:env|printenv|run-printenv)\b/i.test(c))
+  deny('Runtime injection wrapped around env/printenv still dumps injected secrets to stdout. Run the real command under the secrets manager instead.');
 if (/\b(infisical|op)\s+run\b/.test(c)) process.exit(0);
 
 // Remove safe example/sample env files so they don't trip the .env file rule below.
 const scrub = c.replace(/\.env\.(example|sample|template)\b/gi, ' ');
+const clauses = c.split(/\|\||&&|[;&\n]/).map(s => s.trim()).filter(Boolean);
 // Split into simple-command segments so "env FOO=bar cmd" (setter) is distinguished
 // from a bare "env" (whole-environment dump).
 const segments = c.split(/\|\||&&|[;|&\n]/).map(s => s.trim()).filter(Boolean);
@@ -56,6 +92,10 @@ if (/\bbw\s+export\b/.test(c))                       deny('bw export prints your
 if (/\bbw\s+list\s+items\b/.test(c))                 deny('bw list items prints item contents including passwords. Use `bw get <id>` for a single field.');
 if (/\bop\s+item\s+get\b[^|]*--reveal/.test(c))      deny('op item get --reveal prints field values. Pipe `op read` of one ref into the consumer instead.');
 if (/--plain\b/.test(c))                             deny('--plain forces raw secret values to stdout.');
+for (const clause of clauses) {
+  if (/(?:^|\|\s*)op\s+read\b/i.test(clause) && !isMaskedClause(clause))
+    deny('op read prints a secret value to stdout. Use runtime injection, or print only a masked first4 fingerprint with `... | head -c 4`.');
+}
 
 // 2a. Whole-environment dumps — BASH. Check each command segment for a bare dump form.
 if (!isPS) {
@@ -65,6 +105,30 @@ if (!isPS) {
     if (/^set\s*$/.test(seg))                      deny('Bare `set` dumps all shell variables.');
     if (/^(declare|typeset)\s+-\w*p\w*\s*$/.test(seg)) deny('declare -p dumps all variables.');
     if (/^export\s+-p\s*$/.test(seg))              deny('export -p dumps all exported variables.');
+  }
+  for (const clause of clauses) {
+    const masked = isMaskedClause(clause);
+    for (const seg of clause.split('|').map(s => s.trim()).filter(Boolean)) {
+      const w = words(seg);
+      const cmd = commandName(w[0]);
+      const args = w.slice(1);
+
+      if (cmd === 'env') {
+        const nonAssignments = args.filter(arg => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg) && !arg.startsWith('-'));
+        if (args.length && nonAssignments.length === 0)
+          deny('env with only assignments still prints the full environment. Run a real command after the assignments instead.');
+        if (nonAssignments[0] && ['env', 'printenv', 'run-printenv'].includes(commandName(nonAssignments[0])))
+          deny('env wrapped around env/printenv still prints environment values.');
+        if (nonAssignments.some(isSecretVar) && !masked)
+          deny('env references a secret-looking variable in a print-oriented command. Inject secrets into the child process without printing them.');
+      }
+
+      if (['printenv', 'run-printenv'].includes(cmd) && args.some(isSecretVar) && !masked)
+        deny(`${cmd} would print a secret-looking variable. Verify by using the key, or print only a masked first4 fingerprint with \`... | head -c 4\`.`);
+
+      if (['echo', 'printf'].includes(cmd) && secretEnvRefs(seg).some(isSecretVar) && !masked)
+        deny(`${cmd} would print a secret-looking variable. Verify by using the key, or print only a masked first4 fingerprint with \`... | head -c 4\`.`);
+    }
   }
   // env / printenv piped into a filter still routes secret values through stdout.
   if (/\b(env|printenv)\b[^|]*\|\s*(grep|rg|ag|awk|sed|cut|sort|head|tail)\b/.test(c))
