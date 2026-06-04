@@ -12,9 +12,10 @@ class deterministically, whether or not the model "remembers." (Anthropic issue 
 
 - **`secrets-guard.js`** — `PreToolUse` hook. Blocks the *dump-a-secret-to-stdout* class:
   `infisical secrets`/`export`, `bw export`/`list items`, `op item get --reveal`, `--plain`,
-  bare `env`/`printenv`/`set`/`declare -p`, reads of `.env`/`.pem`/`id_rsa`/`credentials`,
+  raw `op read`, secret-looking `echo`/`printf`/`printenv` variable reads, bare
+  `env`/`printenv`/`set`/`declare -p`, reads of `.env`/`.pem`/`id_rsa`/`credentials`,
   language-eval exfil, `docker compose config`. **Allows** the legitimate forms: `op run` /
-  `infisical run` (runtime injection), single-ref `op read` / `bw get`, `op whoami`,
+  `infisical run` (runtime injection), masked first4 checks, `bw get`, `op whoami`,
   `printenv PATH`, `env FOO=bar cmd`, `.env.example`. Vault-agnostic. Written in Node (a Claude
   Code dependency) so it runs unchanged on Mac and Windows/Git Bash. It guards **both** the Bash
   tool and the PowerShell tool: on Windows, Claude Code exposes a separate PowerShell tool, so
@@ -30,9 +31,11 @@ class deterministically, whether or not the model "remembers." (Anthropic issue 
 
 ## Validation
 
-`secrets-guard.js` passes a 63-case allow/block table (Bash 32, PowerShell 31), validated on
-both macOS and Windows. See `Secrets-Guard-Hook-Plan.md` in Wade's workbench for the table and
-the full plan.
+`secrets-guard.js` is validated by a runnable allow/block table — `node hooks/secrets-guard.test.mjs`
+(feeds PreToolUse JSON into the hook; no secret command is executed). It covers Bash and PowerShell,
+the retired repo-level guard's parity checks, and pins the real `$(op read ...)` injection shapes so a
+future edit can't silently start blocking them. See `Secrets-Guard-Hook-Plan.md` in Wade's workbench
+for the full plan.
 
 ## Reviewer notes
 
