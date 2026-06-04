@@ -3,7 +3,9 @@
 // PreToolUse hook. Blocks the "dump a secret to stdout" class before it runs.
 // Cross-platform: runs on Node (a Claude Code dependency) — Mac, Mac Mini, Windows.
 // Covers BOTH the Bash tool and the PowerShell tool (Windows uses both). Bash rules
-// include the repo-level block-secret-print parity checks; PowerShell rules are additive.
+// include the repo-level block-secret-print parity checks; PowerShell rules are additive
+// (Env: drive dumps + Write-Host/Write-Output/echo of a secret-looking $env: var).
+// Secret-name match spans KEY/TOKEN/SECRET/PASSWORD/CREDENTIAL forms on both shells.
 // Vault-agnostic: covers 1Password (op), Infisical, Bitwarden (bw), and the
 // universal leaks (env / cat .env / language-eval) that no vault choice prevents.
 // Allows runtime injection (op run / infisical run) unless the wrapped command is
@@ -52,9 +54,11 @@ function isSecretVar(name) {
   if (!cleaned) return false;
   const upper = cleaned.toUpperCase();
   const parts = upper.split(/[^A-Z0-9]+/).filter(Boolean);
-  return parts.some(part => ['KEY', 'TOKEN', 'SECRET'].includes(part)) ||
-    upper === 'APIKEY' || upper === 'TOKEN' || upper === 'SECRET' ||
-    upper.endsWith('_KEY') || upper.endsWith('_TOKEN') || upper.endsWith('_SECRET');
+  return parts.some(part => ['KEY', 'TOKEN', 'SECRET', 'PASSWORD', 'PASSWD', 'CREDENTIAL', 'CREDENTIALS'].includes(part)) ||
+    upper === 'APIKEY' || upper === 'TOKEN' || upper === 'SECRET' || upper === 'PASSWORD' ||
+    upper.endsWith('_KEY') || upper.endsWith('_TOKEN') || upper.endsWith('_SECRET') ||
+    upper.endsWith('_PASSWORD') || upper.endsWith('_PASSWD') ||
+    upper.endsWith('_CREDENTIAL') || upper.endsWith('_CREDENTIALS');
 }
 
 function secretEnvRefs(segment) {
@@ -144,6 +148,17 @@ if (isPS) {
     deny('[Environment]::GetEnvironmentVariables() dumps all environment variables.');
   for (const seg of segments) {
     if (/^(Get-Variable|gv)\s*$/i.test(seg)) deny('Bare Get-Variable dumps all PowerShell variables, which may hold secrets. Name one: Get-Variable PATH.');
+  }
+  // Secret-looking variable printed via echo / Write-Output / Write-Host (PS aliases).
+  // Mirrors the Bash echo/printf rule so Windows students get the same protection.
+  for (const clause of clauses) {
+    const masked = isMaskedClause(clause);
+    for (const seg of clause.split('|').map(s => s.trim()).filter(Boolean)) {
+      const cmd = commandName(words(seg)[0]);
+      if (['echo', 'write-host', 'write-output'].includes(cmd) &&
+          secretEnvRefs(seg).some(isSecretVar) && !masked)
+        deny('Write-Host/Write-Output/echo of a secret-looking variable prints its value to stdout. Inject the secret at runtime; never print a key.');
+    }
   }
 }
 

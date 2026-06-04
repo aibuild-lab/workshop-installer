@@ -44,6 +44,9 @@ const CASES = [
   ['Bash', 'op item list --vault "Agent Vault"', 'allow'],
   ['PowerShell', 'git status', 'allow'],
   ['PowerShell', '$env:PATH', 'allow'],
+  ['PowerShell', 'Write-Host "build complete"', 'allow'],
+  ['PowerShell', 'Write-Host $env:PATH', 'allow'],
+  ['Bash', 'echo $HOME', 'allow'],
 
   // --- the real leak path: Claude printing a raw secret ---
   ['Bash', `op read "op://Agent Vault/Anthropic API Key/credential"`, 'deny'],
@@ -64,6 +67,16 @@ const CASES = [
   ['Bash', 'op item get "Anthropic API Key" --reveal', 'deny'],
   ['Bash', 'env', 'deny'],
   ['PowerShell', 'Get-Content .env', 'deny'],
+
+  // --- PowerShell secret-print coverage (the layer ported from Wade's §6) ---
+  ['PowerShell', 'Write-Host $env:OPENAI_API_KEY', 'deny'],
+  ['PowerShell', 'Write-Output $env:ANTHROPIC_API_KEY', 'deny'],
+  ['PowerShell', 'echo $env:STRIPE_SECRET', 'deny'],
+
+  // --- broader secret names (PASSWORD / CREDENTIAL), both shells ---
+  ['Bash', 'echo $DB_PASSWORD', 'deny'],
+  ['Bash', 'printf $MY_CREDENTIAL', 'deny'],
+  ['PowerShell', 'Write-Host $env:DB_PASSWORD', 'deny'],
 ];
 
 let pass = 0;
