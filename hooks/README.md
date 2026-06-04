@@ -31,9 +31,11 @@ class deterministically, whether or not the model "remembers." (Anthropic issue 
 
 ## Validation
 
-`secrets-guard.js` is validated with allow/block cases across Bash, PowerShell, and the
-retired repo-level guard's parity checks. See `Secrets-Guard-Hook-Plan.md` in Wade's workbench
-for the original table and the full plan.
+`secrets-guard.js` is validated by a runnable allow/block table — `node hooks/secrets-guard.test.mjs`
+(feeds PreToolUse JSON into the hook; no secret command is executed). It covers Bash and PowerShell,
+the retired repo-level guard's parity checks, and pins the real `$(op read ...)` injection shapes so a
+future edit can't silently start blocking them. See `Secrets-Guard-Hook-Plan.md` in Wade's workbench
+for the full plan.
 
 ## Reviewer notes
 

@@ -90,11 +90,11 @@ if (/\binfisical\s+secrets\b(?!\s+set\b)/.test(c)) deny('infisical secrets dumps
 if (/\binfisical\s+export\b/.test(c))               deny('infisical export prints all secrets. Use `infisical run -- <cmd>`.');
 if (/\bbw\s+export\b/.test(c))                       deny('bw export prints your whole Bitwarden vault. Read one item with `bw get` or inject at runtime.');
 if (/\bbw\s+list\s+items\b/.test(c))                 deny('bw list items prints item contents including passwords. Use `bw get <id>` for a single field.');
-if (/\bop\s+item\s+get\b[^|]*--reveal/.test(c))      deny('op item get --reveal prints field values. Pipe `op read` of one ref into the consumer instead.');
+if (/\bop\s+item\s+get\b[^|]*--reveal/.test(c))      deny('op item get --reveal prints field values. Inject the field instead — `op run -- <cmd>` or command substitution `"$(op read op://...)"` — so the value reaches the program, not stdout.');
 if (/--plain\b/.test(c))                             deny('--plain forces raw secret values to stdout.');
 for (const clause of clauses) {
   if (/(?:^|\|\s*)op\s+read\b/i.test(clause) && !isMaskedClause(clause))
-    deny('op read prints a secret value to stdout. Use runtime injection, or print only a masked first4 fingerprint with `... | head -c 4`.');
+    deny('op read on its own prints a secret to stdout. Inject it instead — `op run -- <cmd>` or command substitution `"$(op read op://...)"` — or, to just confirm it loaded, print a masked first4 fingerprint with `... | head -c 4`.');
 }
 
 // 2a. Whole-environment dumps — BASH. Check each command segment for a bare dump form.
