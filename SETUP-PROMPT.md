@@ -580,7 +580,7 @@ If `infisical user` fails, stop and help the student complete `infisical login`.
 
 Tell the student:
 
-> "Infisical CLI is signed in. We are deliberately stopping before project or agent setup. Your repo will start on the 4D connector path. Later, if a local script, MCP server, scheduled job, or blueprint needs API-key environment variables, open Claude in your repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read Infisical machine identity details. Admin-write and break-glass credentials are separate facilitator/admin practices, not part of baseline setup."
+> "Infisical CLI is signed in. We are deliberately stopping before project or agent setup. Your repo will start on the 4D connector path. Later, if a local script, MCP server, scheduled job, or blueprint needs API-key environment variables, open Claude in your repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read Infisical machine identity details. Admin-write and break-glass credentials are separate facilitator/admin practices, not part of baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo."
 
 ### Step 5.3.5: Install the secrets guard
 

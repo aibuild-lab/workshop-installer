@@ -181,7 +181,7 @@ To activate 8D secrets, open Claude Code inside your private `agent-native-os` r
 /upgrade-8d-secrets
 ```
 
-That command activates Infisical Agent only after a facilitator gives you scoped routine-read Universal Auth machine identity details. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup.
+That command activates Infisical Agent only after a facilitator gives you scoped routine-read Universal Auth machine identity details. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo.
 
 If you are switching from 1Password, this does not move existing 1Password items or rewrite `op://` references. Keep existing entries until you have deliberately moved each secret and verified the tool works without printing the value.
 
