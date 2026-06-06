@@ -250,7 +250,7 @@ When you need local API-key environment variables for a script, MCP server, sche
 /upgrade-8d-secrets
 ```
 
-That command activates Infisical Agent after a facilitator gives you scoped Universal Auth machine identity details. It does not use project `.env` files.
+That command activates Infisical Agent after a facilitator gives you scoped routine-read Universal Auth machine identity details. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup.
 
 If `infisical --version` is missing later, use the manual guide to install the CLI first, then return to `/upgrade-8d-secrets`.
 
@@ -264,7 +264,7 @@ For Infisical specifically:
 
 - If `infisical` is not found after install, open a fresh terminal and run `infisical --version`. If it still fails, rerun the Infisical CLI install step in the manual guide.
 - If browser login does not complete, rerun `infisical login`.
-- If you do not have an Infisical project yet, that is okay. This installer only verifies CLI login. If you later need API-key env vars, run `/upgrade-8d-secrets` from your private repo after a facilitator gives you scoped machine identity details.
+- If you do not have an Infisical project yet, that is okay. This installer only verifies CLI login. If you later need API-key env vars, run `/upgrade-8d-secrets` from your private repo after a facilitator gives you scoped routine-read machine identity details.
 
 ## Need help?
 

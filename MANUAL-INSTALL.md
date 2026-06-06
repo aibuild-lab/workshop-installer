@@ -181,7 +181,7 @@ To activate 8D secrets, open Claude Code inside your private `agent-native-os` r
 /upgrade-8d-secrets
 ```
 
-That command activates Infisical Agent only after a facilitator gives you scoped Universal Auth machine identity details. It does not use project `.env` files.
+That command activates Infisical Agent only after a facilitator gives you scoped routine-read Universal Auth machine identity details. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup.
 
 If you are switching from 1Password, this does not move existing 1Password items or rewrite `op://` references. Keep existing entries until you have deliberately moved each secret and verified the tool works without printing the value.
 
@@ -495,7 +495,7 @@ Verify with:
 infisical user
 ```
 
-Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets`.
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
 
 You're done.
 
@@ -733,7 +733,7 @@ Verify with:
 infisical user
 ```
 
-Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets`.
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
 
 You're done.
 
@@ -796,7 +796,7 @@ iwr -useb get.scoop.sh | iex
 
 **Why it happens:** Baseline setup only installs and signs in to Infisical CLI. It does not create a project, run `infisical init`, or start Infisical Agent.
 
-**Fix:** Nothing is broken. Continue the workshop setup. Later, if you need API-key env vars, open Claude in your private `agent-native-os` repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped machine identity details.
+**Fix:** Nothing is broken. Continue the workshop setup. Later, if you need API-key env vars, open Claude in your private `agent-native-os` repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
 
 ### Error: `winget: command not found` (Windows)
 
