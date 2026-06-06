@@ -230,7 +230,7 @@ State the **why** for each, using these explanations as a starting point. Adapt 
 
 **Infisical CLI:**
 
-> "Infisical is a secure place for project secrets, things like API keys that should never be pasted into chat or committed to GitHub. The CLI lets your terminal connect to Infisical without exposing the secret values. For this baseline setup, we're only installing the CLI and signing you in. We are not creating an Infisical project yet and we are not running `infisical init`; that comes later in the secrets module when you know which project or team workspace you should use."
+> "Infisical is a secure place for project secrets, things like API keys that should never be pasted into chat or committed to GitHub. The CLI lets your terminal connect to Infisical without exposing the secret values. For this baseline setup, we're only installing the CLI and signing you in. We are not creating an Infisical project, running `infisical init`, or starting Infisical Agent. If you later need API-key environment variables, you'll run `/upgrade-8d-secrets` from your private repo."
 
 ### Step 3.4: Claude Code (native binary install)
 
@@ -439,7 +439,7 @@ This **doesn't need admin** because it's CurrentUser scope.
 
 **State + plan.** Use this explanation:
 
-> "Infisical is a secure place for project secrets, things like API keys that should never be pasted into chat or committed to GitHub. The CLI lets your terminal connect to Infisical without exposing the secret values. For this baseline setup, we're only installing the CLI and signing you in. We are not creating an Infisical project yet and we are not running `infisical init`; that comes later in the secrets module when you know which project or team workspace you should use."
+> "Infisical is a secure place for project secrets, things like API keys that should never be pasted into chat or committed to GitHub. The CLI lets your terminal connect to Infisical without exposing the secret values. For this baseline setup, we're only installing the CLI and signing you in. We are not creating an Infisical project, running `infisical init`, or starting Infisical Agent. If you later need API-key environment variables, you'll run `/upgrade-8d-secrets` from your private repo."
 
 **If Scoop is missing**, install it at the CurrentUser scope before installing Infisical:
 
@@ -564,7 +564,7 @@ Tell the student:
 > infisical login
 > ```
 >
-> *Why:* Infisical is the secure secrets path we'll use later when team-scale project secrets matter. Signing in now proves the CLI is installed and connected, but it does not create or link a project yet.
+> *Why:* Infisical CLI makes the machine 8D-ready for later env-var tools. Signing in now proves the CLI is installed and connected, but it does not create a project, link a repo, or start Infisical Agent.
 >
 > *What to expect:* Infisical may open your browser or show a one-time code. Complete the browser flow and come back to the terminal. **Do not paste an Infisical password, API key, token, or secret value into this chat.** Browser login is the safe path.
 >
@@ -576,11 +576,11 @@ Wait for the student to confirm. Then verify Infisical auth with a non-secret co
 infisical user
 ```
 
-If `infisical user` fails, stop and help the student complete `infisical login`. Never run `infisical user get token`, because it can print an access token. Do not run `infisical init`, and do not create an Infisical project during baseline setup.
+If `infisical user` fails, stop and help the student complete `infisical login`. Never run `infisical user get token`, because it can print an access token. Do not run `infisical init`, do not create an Infisical project, and do not start Infisical Agent during baseline setup.
 
 Tell the student:
 
-> "Infisical CLI is signed in. We are deliberately stopping before project setup. Later, during the secrets module, you or a TA can create or join the correct Infisical project in the web app, then run `infisical init` from `~/GitHub/agent-native-os` to link that local repo to the right project."
+> "Infisical CLI is signed in. We are deliberately stopping before project or agent setup. Your repo will start on the 4D connector path. Later, if a local script, MCP server, scheduled job, or blueprint needs API-key environment variables, open Claude in your repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped Infisical machine identity details."
 
 ### Step 5.3.5: Install the secrets guard
 
@@ -690,6 +690,8 @@ If the script stops, do not improvise with manual remote edits. Read the error a
 When the script completes, report:
 
 > "Your private workshop repo is ready! Your private `origin` is set up on your GitHub account, AI Build Lab's course repo is wired as `upstream` for cohort updates, and your local workshop folder is at `~/GitHub/agent-native-os`. You're safe to personalize this repo now."
+>
+> "Your secrets path starts as 4D connectors. When you need API-key environment variables, open Claude in this repo and run `/upgrade-8d-secrets`."
 
 ### Step 5.5: Cohort 1 migration path
 
@@ -734,6 +736,8 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
+> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets`.
+>
 > **Your next step before the workshop: run `/personalize`**
 >
 > Now you'll point Claude at the workshop folder we just set up and run the `/personalize` command. This builds your personal CLAUDE.md file with context about who you are and how you work. It's the foundation of the 'second brain' system you'll build during the workshop, which is why we want it in place before we start.
@@ -766,6 +770,8 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 > **Your private GitHub repo:** `<your-username>/agent-native-os-private`. This is where your changes get pushed. Only you can see it. The cohort source stays at `aibuild-lab/agent-native-os` and you'll pull updates from there when AI Build Lab ships new material.
 >
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
+>
+> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets`.
 >
 > **Your next step before the workshop: run `/personalize`**
 >

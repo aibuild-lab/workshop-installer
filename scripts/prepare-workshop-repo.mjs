@@ -180,6 +180,10 @@ async function main() {
     label: "Write local repo safety report to .aibl/repo-state.md",
     run: () => writeRepoState(repoPath, githubUser, branch),
   });
+  mutations.push({
+    label: "Write baseline 4D secrets profile to .aibl/workshop-profile.json",
+    run: () => writeWorkshopProfile(repoPath),
+  });
 
   await confirmAndRun(
     mutations.map((mutation) => mutation.label),
@@ -208,8 +212,10 @@ async function main() {
   console.log("Repo setup complete.");
   console.log(`- Private origin is ready: ${normalizeRemoteSlug(finalRemotes.origin) || finalRemotes.origin}`);
   console.log(`- AI Build Lab remains upstream: ${DEFAULT_UPSTREAM}`);
+  console.log("- Secrets path is set to 4D connectors by default.");
   console.log("- It is safe to personalize this local repo.");
   console.log("");
+  console.log("When you need API-key env vars, open Claude in your repo and run /upgrade-8d-secrets.");
   console.log(`Next: cd "${repoPath}" && claude`);
 }
 
@@ -491,6 +497,16 @@ function writeRepoState(cwd, githubUser, branch) {
     "",
   ].join("\n");
   fs.writeFileSync(path.join(stateDir, "repo-state.md"), report);
+}
+
+function writeWorkshopProfile(cwd) {
+  const stateDir = path.join(cwd, ".aibl");
+  fs.mkdirSync(stateDir, { recursive: true });
+  const profile = {
+    secretsPath: "4d-connectors",
+    updatedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(stateDir, "workshop-profile.json"), `${JSON.stringify(profile, null, 2)}\n`, { mode: 0o600 });
 }
 
 async function confirmAndRun(planLines, action) {

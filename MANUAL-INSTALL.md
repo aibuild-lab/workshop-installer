@@ -142,11 +142,11 @@ git pull --ff-only
 node scripts/prepare-workshop-repo.mjs
 ```
 
-### Infisical-only setup after the main installer
+### Upgrade to 8D secrets after the main installer
 
-Use this if you already completed the main workshop setup and now want to add Infisical, or if you previously used 1Password and want Infisical available for future team-scale secrets work.
+Use this if you already completed the main workshop setup and now need API-key environment variables for a local script, MCP server, scheduled job, or 8D blueprint.
 
-This is not an automatic 1Password migration. Installing Infisical does not move vault items out of 1Password, delete any 1Password data, or rewrite `op://` references in Claude Code, MCP, app, or shell config files. Keep existing 1Password entries until you have deliberately moved each secret and updated the corresponding config.
+The baseline installer normally already installs and signs in to Infisical CLI. If `infisical --version` fails, install the CLI first:
 
 If you do not already have an Infisical account, create one first at https://app.infisical.com.
 
@@ -173,15 +173,17 @@ infisical user
 
 If Scoop says the `org` bucket already exists, continue to `scoop install infisical`.
 
-Stop after `infisical user` unless a TA or the secrets module tells you which Infisical project to create or join. Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init` until you are inside the correct project folder and know which Infisical project should be linked.
+Stop after `infisical user`. Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, and do not start Infisical Agent manually.
 
-When you are ready to move a specific secret from 1Password to Infisical later:
+To activate 8D secrets, open Claude Code inside your private `agent-native-os` repo and run:
 
-1. Create or join the correct Infisical project in the web app.
-2. Add the secret value in Infisical.
-3. Update the relevant local tool or app config to read from Infisical instead of the old `op://` reference.
-4. Verify the tool works without printing the secret.
-5. Only then remove or archive the old 1Password item if you no longer need it.
+```text
+/upgrade-8d-secrets
+```
+
+That command activates Infisical Agent only after a facilitator gives you scoped Universal Auth machine identity details. It does not use project `.env` files.
+
+If you are switching from 1Password, this does not move existing 1Password items or rewrite `op://` references. Keep existing entries until you have deliberately moved each secret and verified the tool works without printing the value.
 
 Do not paste secret values, API keys, Infisical tokens, or 1Password item contents into Claude chat while doing this.
 
@@ -412,7 +414,7 @@ Expected output: `RemoteSigned`
 
 ### Step 8 — Install Scoop and Infisical CLI
 
-**Why:** Infisical is the secure secrets path for later team-scale project secrets. The CLI lets your terminal connect to Infisical without putting secret values in chat or GitHub. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project and does not run `infisical init`.
+**Why:** Infisical CLI makes the machine 8D-ready for later env-var tools. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project, run `infisical init`, or start Infisical Agent.
 
 **Install Scoop if needed (paste in PowerShell):**
 
@@ -493,7 +495,7 @@ Verify with:
 infisical user
 ```
 
-Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init` during baseline setup. Later, during the secrets module, you or a TA can create or join the correct Infisical project in the web app and then run `infisical init` from `~/GitHub/agent-native-os`.
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets`.
 
 You're done.
 
@@ -667,7 +669,7 @@ Expected output: `2.1.123 (Claude Code)`
 
 ### Step 7 — Install Infisical CLI via Homebrew
 
-**Why:** Infisical is the secure secrets path for later team-scale project secrets. The CLI lets your terminal connect to Infisical without putting secret values in chat or GitHub. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project and does not run `infisical init`.
+**Why:** Infisical CLI makes the machine 8D-ready for later env-var tools. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project, run `infisical init`, or start Infisical Agent.
 
 **Command:**
 
@@ -731,7 +733,7 @@ Verify with:
 infisical user
 ```
 
-Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init` during baseline setup. Later, during the secrets module, you or a TA can create or join the correct Infisical project in the web app and then run `infisical init` from `~/GitHub/agent-native-os`.
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets`.
 
 You're done.
 
@@ -792,9 +794,9 @@ iwr -useb get.scoop.sh | iex
 
 ### Infisical says you have no project
 
-**Why it happens:** Baseline setup only installs and signs in to Infisical CLI. It does not create a project or run `infisical init`.
+**Why it happens:** Baseline setup only installs and signs in to Infisical CLI. It does not create a project, run `infisical init`, or start Infisical Agent.
 
-**Fix:** Nothing is broken. Continue the workshop setup. Later, during the secrets module, create or join the correct Infisical project in the web app, then run `infisical init` from `~/GitHub/agent-native-os`.
+**Fix:** Nothing is broken. Continue the workshop setup. Later, if you need API-key env vars, open Claude in your private `agent-native-os` repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped machine identity details.
 
 ### Error: `winget: command not found` (Windows)
 

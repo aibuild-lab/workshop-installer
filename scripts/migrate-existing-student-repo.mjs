@@ -59,6 +59,8 @@ async function main() {
   console.log("Cohort 1 repo migration complete.");
   console.log(`- origin: ${normalizeRemoteSlug(finalRemotes.origin)}`);
   console.log(`- upstream: ${COURSE_REPO}`);
+  console.log("- Secrets path is set to 4D connectors by default.");
+  console.log("When you need API-key env vars, open Claude in your repo and run /upgrade-8d-secrets.");
   console.log("Next: open Claude Code inside this folder and run /update-course.");
 }
 
@@ -201,6 +203,14 @@ function buildPlan(repoRoot, remotes, githubUser, branch) {
     label: "Fetch AI Build Lab upstream main",
     run: () => git(repoRoot, ["fetch", "upstream", "main"]),
   });
+  plan.push({
+    label: "Ensure .aibl/ is ignored locally",
+    run: () => ensureAiblIgnored(repoRoot),
+  });
+  plan.push({
+    label: "Write baseline 4D secrets profile to .aibl/workshop-profile.json",
+    run: () => writeWorkshopProfile(repoRoot),
+  });
   return plan;
 }
 
@@ -273,6 +283,24 @@ async function confirmAndRun(plan) {
     console.log(`\n> ${step.label}`);
     step.run();
   }
+}
+
+function ensureAiblIgnored(repoRoot) {
+  const gitignorePath = path.join(repoRoot, ".gitignore");
+  const existing = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, "utf8") : "";
+  if (/^\.aibl\/$/m.test(existing)) return;
+  const prefix = existing.endsWith("\n") || existing.length === 0 ? "" : "\n";
+  fs.appendFileSync(gitignorePath, `${prefix}\n# Local AI Build Lab setup state\n.aibl/\n`);
+}
+
+function writeWorkshopProfile(repoRoot) {
+  const stateDir = path.join(repoRoot, ".aibl");
+  fs.mkdirSync(stateDir, { recursive: true });
+  const profile = {
+    secretsPath: "4d-connectors",
+    updatedAt: new Date().toISOString(),
+  };
+  fs.writeFileSync(path.join(stateDir, "workshop-profile.json"), `${JSON.stringify(profile, null, 2)}\n`, { mode: 0o600 });
 }
 
 function refuseCloudSync(targetPath) {

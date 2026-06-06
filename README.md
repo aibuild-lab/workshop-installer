@@ -60,7 +60,7 @@ What the migration does:
 
 4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10-15 minutes for the tools (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first), plus a few minutes to sign in and prepare your private workshop repo.
 
-5. **Sign in to Infisical CLI, then prepare your private workshop repo.** After GitHub and Claude Code sign-in, Claude will also walk you through `infisical login`. If you do not already have an Infisical account, create one at [app.infisical.com](https://app.infisical.com) first. The installer only verifies CLI login. It does **not** create an Infisical project and does **not** run `infisical init`; that happens later in the secrets module when you know which project or team workspace to use.
+5. **Sign in to Infisical CLI, then prepare your private workshop repo.** After GitHub and Claude Code sign-in, Claude will also walk you through `infisical login`. If you do not already have an Infisical account, create one at [app.infisical.com](https://app.infisical.com) first. The installer only verifies CLI login. It does **not** create an Infisical project, run `infisical init`, or start Infisical Agent. Your repo starts on the 4D connector path. If you later need API-key environment variables, open Claude from your repo and run `/upgrade-8d-secrets`.
 
    After sign-ins are complete, Claude will run the repo setup gate. The safe model is:
 
@@ -71,6 +71,8 @@ What the migration does:
    **What the gate actually does:** it clones the workshop repo (`agent-native-os`) into `~/GitHub/agent-native-os` on your computer, creates the private GitHub repo on your account, pushes the workshop files up to it, and wires the connections so future pushes go to your private repo. The setup script itself lives inside this installer repo, which is why Claude clones the installer first and then runs the script from inside it. If the course repo is private, you must accept your AI Build Lab GitHub org invite first.
 
    The setup uses `~/GitHub` by default. Do not put workshop repos inside Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files. Cloud sync can corrupt `.git`, create lock conflicts, or sync secrets.
+
+   The setup also writes a local-only `.aibl/workshop-profile.json` file that marks your starting secret path as `4d-connectors`. That file stays out of Git.
 
 ## What you'll see during install (and what to click)
 
@@ -238,34 +240,21 @@ node scripts/prepare-workshop-repo.mjs
 
 When it completes, you should see: private `origin` is ready, AI Build Lab remains `upstream`, and it is safe to personalize.
 
-## Add Infisical later without rerunning setup
+## Upgrade to 8D secrets later
 
-If you already completed the main setup and only need to add Infisical now, do not rerun the full installer. Install and sign in to the Infisical CLI directly.
+The baseline installer already installs and signs you in to Infisical CLI. It does not start Infisical Agent for everyone.
 
-**Mac:**
+When you need local API-key environment variables for a script, MCP server, scheduled job, or 8D blueprint, open Claude Code from your private `agent-native-os` repo and run:
 
-```bash
-brew install infisical/get-cli/infisical
-infisical --version
-infisical login
-infisical user
+```text
+/upgrade-8d-secrets
 ```
 
-**Windows PowerShell:**
+That command activates Infisical Agent after a facilitator gives you scoped Universal Auth machine identity details. It does not use project `.env` files.
 
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
-iwr -useb get.scoop.sh | iex
-scoop bucket add org https://github.com/Infisical/scoop-infisical.git
-scoop install infisical
-infisical --version
-infisical login
-infisical user
-```
+If `infisical --version` is missing later, use the manual guide to install the CLI first, then return to `/upgrade-8d-secrets`.
 
-If you do not already have an Infisical account, create one first at [app.infisical.com](https://app.infisical.com). Stop after `infisical user` unless a TA or the secrets module tells you which project to create or join. Do not run `infisical init` yet, and do not run `infisical user get token`.
-
-If you are switching from 1Password, this only adds Infisical for future secrets work. It does not move existing 1Password items or rewrite any `op://` references in your tool configs.
+If you are switching from 1Password, `/upgrade-8d-secrets` only activates Infisical for future env-var tools. It does not move existing 1Password items or rewrite any `op://` references in your tool configs.
 
 ## If anything goes wrong
 
@@ -275,7 +264,7 @@ For Infisical specifically:
 
 - If `infisical` is not found after install, open a fresh terminal and run `infisical --version`. If it still fails, rerun the Infisical CLI install step in the manual guide.
 - If browser login does not complete, rerun `infisical login`.
-- If you do not have an Infisical project yet, that is okay. This installer only verifies CLI login. Project creation and `infisical init` happen later in the secrets module.
+- If you do not have an Infisical project yet, that is okay. This installer only verifies CLI login. If you later need API-key env vars, run `/upgrade-8d-secrets` from your private repo after a facilitator gives you scoped machine identity details.
 
 ## Need help?
 
