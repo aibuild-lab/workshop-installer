@@ -623,11 +623,38 @@ Do not try to verify the block here in this Claude Desktop session. The guard go
 
 ### Step 5.3.6: Confirm the guard actually works
 
-The guard protects **Claude Code**, not this Claude Desktop session, so it cannot be tested from here. The student has to watch it fire inside Claude Code. Do not skip this: a guard that installed but is not firing (a missing Node runtime, a path that did not resolve, an old session that never reloaded settings) looks identical to a working one right up until the day it matters. This step turns "installed" into "proven," and it doubles as a friendly first run of Claude Code for the student.
+The guard protects **Claude Code**, not this Claude Desktop session, so it cannot be tested from inside the session you are running right now. Do not skip this step: a guard that installed but is not firing (node not resolving, a path that did not resolve, an old session that never reloaded settings) looks identical to a working one right up until the day it matters. This step turns "installed" into "proven."
 
-Walk them through it one line at a time. Tell the student:
+You can prove it yourself, without making the student restart or open anything, by launching a **fresh headless Claude Code process** from your subshell. Because it is a brand-new process, it loads the `~/.claude/settings.json` you just wrote, with the hooks active. That is the whole trick: the guard only loads at process start, and a new headless process is a new start.
 
-> "Last thing, and it is a good one: let's watch the guard say no. This is also your first real run of Claude Code.
+**The only success signal is the guard's explicit refusal.** If the guard is working, it denies the command *before* the shell ever runs it, so you will see the guard's own deny message. Anything else (the command ran, it printed output, it returned `infisical: command not found`, or it was silent) means the guard did NOT fire and the student is not protected. A `command not found` is not a separate issue to wave off: it proves the shell reached execution, which means the guard never blocked it.
+
+**Primary path: verify it yourself (headless).**
+
+Run a one-shot headless Claude Code session that asks it to run the exact secret-dumping command. Use the **full path** to the claude binary, because claude may not be on this subshell's PATH (same reason node was not). Use the invocation matching the OS you detected in Step 1:
+
+- **Mac:**
+  ```
+  "$HOME/.local/bin/claude" -p "Run the command: infisical secrets --plain"
+  ```
+- **Windows (Git Bash subshell):**
+  ```
+  "$HOME/.local/bin/claude.exe" -p "Run the command: infisical secrets --plain"
+  ```
+
+(If `claude` is already on your subshell PATH, a bare `claude -p "..."` works too.)
+
+Read the output:
+
+- **It mentions the secrets guard refusing the command** (for example *"infisical secrets dumps vault values to stdout ... [secrets-guard hook]"*) -> success. The guard is verified end to end: a fresh, real Claude Code process loaded the hook and the hook denied the command before it ran. Tell the student plainly: *"Verified. I just launched a fresh Claude Code process and watched the guard refuse a real secret-dumping command. From now on Claude Code cannot dump your secrets to the screen, in any project, not just this one."* Continue to Step 5.4.
+- **Any other result** (ran, printed, `command not found`, silent) -> the guard is not firing. Go to the troubleshooting list below, fix it, and re-run the headless check.
+- **The harness blocks you from launching the headless process, or the claude binary is not found** -> fall back to the manual path below.
+
+**Fallback path: have the student watch it fire.**
+
+If the headless check is blocked or inconclusive, walk the student through it one line at a time. Tell the student:
+
+> "Let's watch the guard say no. This is also a good first run of Claude Code.
 >
 > 1. Open **Git Bash** (on Windows) or your **Terminal** (on Mac), type `claude`, and press Enter. You already signed in earlier, so it will just open. If you still have Claude Code running from before, close it and start it fresh, because the guard loads when Claude Code starts.
 > 2. When you see the prompt, type this exactly and press Enter:
@@ -636,17 +663,16 @@ Walk them through it one line at a time. Tell the student:
 >
 > Paste back what it says. Don't worry, this is completely safe: the guard stops the command before it runs, so there is nothing to leak even if you tried. We are just watching it do its job."
 
-**Wait** for the student to report back, then:
+Apply the same success rule to what they paste back: only the guard's explicit refusal counts.
 
-- **It refused and mentioned the secrets guard** -> success. Tell them: *"That is exactly right. That refusal is the guard working. From now on Claude Code cannot dump your secrets to the screen, in any project, not just this one."* Continue to Step 5.4.
-- **It ran the command, printed output, or did not refuse** -> the hook is not firing and the student is not protected. Fix it before continuing:
-  1. Check Node: `node --version` should print a version in the student's shell.
-  2. Check the files landed: `ls ~/.claude/hooks/` should list `secrets-guard.js` and `secrets-tripwire.js`.
-  3. Confirm they opened a **fresh** Claude Code session after Step 5.3.5. An older session will not have the guard loaded.
-  4. Re-run `node ~/.claude/hooks/install.mjs`, have them fully restart Claude Code, and retry the test.
-- **A different error** (for example `infisical: command not found`) -> that is a separate issue from the guard. Resolve it, then retry so you still confirm the refusal.
+**If either path shows anything other than the guard's refusal**, the hook is not firing. Fix it before continuing:
 
-Do not advance to Step 5.4 until the student has reported the refusal. This is the only point where the entire secrets-guard setup is verified end to end.
+1. Check the files landed: `ls ~/.claude/hooks/` should list `secrets-guard.js` and `secrets-tripwire.js`.
+2. Re-run `node ~/.claude/hooks/install.mjs`. The installer now repairs an existing hook entry in place, so this rewrites any stale command (including the old bare-`node` form) to the absolute node path. It prints the runtime it pinned (`Hook runtime: ...`); confirm that path exists.
+3. Re-run the headless check (primary path). If you are on the manual fallback, have the student fully restart Claude Code first, since an older session will not have the guard loaded.
+4. If node itself is missing when you try to re-run the installer (`node: command not found`), that is a PATH problem in this subshell, not a guard problem. Resolve it (the same Homebrew/PATH situation from earlier), then re-run step 2.
+
+Do not advance to Step 5.4 until you have seen the guard's refusal, by either path. This is the only point where the entire secrets-guard setup is verified end to end.
 
 ### Step 5.4: Prepare the private workshop repo
 
