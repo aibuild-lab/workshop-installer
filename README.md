@@ -60,7 +60,7 @@ What the migration does:
 
 4. **Follow Claude's instructions.** Claude will detect your operating system, check what's already installed, and walk you through any setup needed. The whole process takes ~10-15 minutes for the tools (a bit longer if you're on a fresh Mac and need to install Apple Command Line Tools and Homebrew first), plus a few minutes to sign in and prepare your private workshop repo.
 
-5. **Sign in to Infisical CLI, then prepare your private workshop repo.** After GitHub and Claude Code sign-in, Claude will also walk you through `infisical login`. If you do not already have an Infisical account, create one at [app.infisical.com](https://app.infisical.com) first. The installer only verifies CLI login. It does **not** create an Infisical project, run `infisical init`, or start Infisical Agent. Your repo starts on the 4D connector path. If you later need API-key environment variables, open Claude from your repo and run `/upgrade-8d-secrets`.
+5. **Sign in to Infisical CLI, then prepare your private workshop repo.** After GitHub and Claude Code sign-in, Claude will also walk you through `infisical login`. If you do not already have an Infisical account, create one in the right cloud region first: use [US Cloud](https://app.infisical.com) if you are in the US or have no compliance preference, or [EU Cloud](https://eu.infisical.com) if you are in Europe or need EU data residency. During `infisical login`, choose the same region. If your CLI does not show a region picker, EU users should use `infisical login --domain https://eu.infisical.com` or set `INFISICAL_API_URL=https://eu.infisical.com`. The installer only verifies CLI login. It does **not** create an Infisical project, run `infisical init`, or start Infisical Agent. Your repo starts on the 4D connector path. If you later need API-key environment variables, open Claude from your repo and run `/upgrade-8d-secrets`.
 
    After sign-ins are complete, Claude will run the repo setup gate. The safe model is:
 
@@ -250,7 +250,7 @@ When you need local API-key environment variables for a script, MCP server, sche
 /upgrade-8d-secrets
 ```
 
-That command activates Infisical Agent after a facilitator gives you scoped routine-read Universal Auth machine identity details. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup. Later 8D automation field notes live inside the private `agent-native-os` repo.
+That command activates Infisical Agent after a facilitator gives you scoped routine-read Universal Auth machine identity details from the same Infisical region as your account and project. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup. Later 8D automation field notes live inside the private `agent-native-os` repo.
 
 If `infisical --version` is missing later, use the manual guide to install the CLI first, then return to `/upgrade-8d-secrets`.
 
@@ -263,8 +263,8 @@ See [MANUAL-INSTALL.md](MANUAL-INSTALL.md) for step-by-step manual install instr
 For Infisical specifically:
 
 - If `infisical` is not found after install, open a fresh terminal and run `infisical --version`. If it still fails, rerun the Infisical CLI install step in the manual guide.
-- If browser login does not complete, rerun `infisical login`.
-- If you do not have an Infisical project yet, that is okay. This installer only verifies CLI login. If you later need API-key env vars, run `/upgrade-8d-secrets` from your private repo after a facilitator gives you scoped routine-read machine identity details.
+- If browser login does not complete, rerun `infisical login` and choose the same cloud region you used when creating the account. EU users can also run `infisical login --domain https://eu.infisical.com` or set `INFISICAL_API_URL=https://eu.infisical.com`.
+- If you do not have an Infisical project yet, that is okay. This installer only verifies CLI login. If you later need API-key env vars, run `/upgrade-8d-secrets` from your private repo after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
 
 ## Need help?
 

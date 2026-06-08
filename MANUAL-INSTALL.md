@@ -148,7 +148,12 @@ Use this if you already completed the main workshop setup and now need API-key e
 
 The baseline installer normally already installs and signs in to Infisical CLI. If `infisical --version` fails, install the CLI first:
 
-If you do not already have an Infisical account, create one first at https://app.infisical.com.
+If you do not already have an Infisical account, create one in the right cloud region first:
+
+- US Cloud: https://app.infisical.com
+- EU Cloud: https://eu.infisical.com
+
+Use US Cloud if you are in the US or have no compliance preference. Use EU Cloud if you are in Europe or need EU data residency. During `infisical login`, choose the same region. If your CLI does not show a region picker, EU users can run `infisical login --domain https://eu.infisical.com` or set `INFISICAL_API_URL=https://eu.infisical.com`.
 
 **Mac:**
 
@@ -181,7 +186,7 @@ To activate 8D secrets, open Claude Code inside your private `agent-native-os` r
 /upgrade-8d-secrets
 ```
 
-That command activates Infisical Agent only after a facilitator gives you scoped routine-read Universal Auth machine identity details. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo.
+That command activates Infisical Agent only after a facilitator gives you scoped routine-read Universal Auth machine identity details from the same Infisical region as your account and project. It does not use project `.env` files. Admin-write and break-glass credentials are separate facilitator/admin practices and are not installed by the baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo.
 
 If you are switching from 1Password, this does not move existing 1Password items or rewrite `op://` references. Keep existing entries until you have deliberately moved each secret and verified the tool works without printing the value.
 
@@ -481,13 +486,13 @@ Follow the sign-in flow.
 
 **Infisical CLI:**
 
-If you do not already have an Infisical account, create one first at https://app.infisical.com. Then in Git Bash or PowerShell:
+If you do not already have an Infisical account, create one in the right cloud region first: US Cloud at https://app.infisical.com, or EU Cloud at https://eu.infisical.com. Use US Cloud if you are in the US or have no compliance preference. Use EU Cloud if you are in Europe or need EU data residency. Then in Git Bash or PowerShell:
 
 ```bash
 infisical login
 ```
 
-Follow the browser or one-time-code flow. Do not paste an Infisical password, API key, token, or secret value into Claude chat.
+Follow the browser or one-time-code flow. Choose the same cloud region you used when creating the account. If the CLI does not show a region picker and you are using EU Cloud, rerun as `infisical login --domain https://eu.infisical.com` or set `INFISICAL_API_URL=https://eu.infisical.com`. Do not paste an Infisical password, API key, token, or secret value into Claude chat.
 
 Verify with:
 
@@ -495,7 +500,7 @@ Verify with:
 infisical user
 ```
 
-Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
 
 You're done.
 
@@ -719,13 +724,13 @@ Follow the sign-in flow.
 
 **Infisical CLI:**
 
-If you do not already have an Infisical account, create one first at https://app.infisical.com. Then in Terminal:
+If you do not already have an Infisical account, create one in the right cloud region first: US Cloud at https://app.infisical.com, or EU Cloud at https://eu.infisical.com. Use US Cloud if you are in the US or have no compliance preference. Use EU Cloud if you are in Europe or need EU data residency. Then in Terminal:
 
 ```bash
 infisical login
 ```
 
-Follow the browser or one-time-code flow. Do not paste an Infisical password, API key, token, or secret value into Claude chat.
+Follow the browser or one-time-code flow. Choose the same cloud region you used when creating the account. If the CLI does not show a region picker and you are using EU Cloud, rerun as `infisical login --domain https://eu.infisical.com` or set `INFISICAL_API_URL=https://eu.infisical.com`. Do not paste an Infisical password, API key, token, or secret value into Claude chat.
 
 Verify with:
 
@@ -733,7 +738,7 @@ Verify with:
 infisical user
 ```
 
-Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
+Do not run `infisical user get token`, because it can print an access token. Do not run `infisical init`, create a project, or start Infisical Agent during baseline setup. Your repo starts on 4D connectors. Later, if you need API-key env vars, open Claude in the repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
 
 You're done.
 
@@ -796,7 +801,7 @@ iwr -useb get.scoop.sh | iex
 
 **Why it happens:** Baseline setup only installs and signs in to Infisical CLI. It does not create a project, run `infisical init`, or start Infisical Agent.
 
-**Fix:** Nothing is broken. Continue the workshop setup. Later, if you need API-key env vars, open Claude in your private `agent-native-os` repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
+**Fix:** Nothing is broken. Continue the workshop setup. If you cannot verify CLI login, confirm you used the same Infisical cloud region for account creation and `infisical login`. Later, if you need API-key env vars, open Claude in your private `agent-native-os` repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
 
 ### Error: `winget: command not found` (Windows)
 

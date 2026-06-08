@@ -559,14 +559,19 @@ Tell the student:
 
 Tell the student:
 
-> "**Sign in to Infisical CLI.** If you don't already have an Infisical account, open https://app.infisical.com in your browser and create one first. Then come back to this same terminal and run:
+> "**Sign in to Infisical CLI.** If you don't already have an Infisical account, create one in the right cloud region first:
+>
+> - US Cloud: https://app.infisical.com
+> - EU Cloud: https://eu.infisical.com
+>
+> Use US Cloud if you are in the US or have no compliance preference. Use EU Cloud if you are in Europe or need EU data residency. Then come back to this same terminal and run:
 > ```
 > infisical login
 > ```
 >
 > *Why:* Infisical CLI makes the machine 8D-ready for later env-var tools. Signing in now proves the CLI is installed and connected, but it does not create a project, link a repo, or start Infisical Agent.
 >
-> *What to expect:* Infisical may open your browser or show a one-time code. Complete the browser flow and come back to the terminal. **Do not paste an Infisical password, API key, token, or secret value into this chat.** Browser login is the safe path.
+> *What to expect:* Infisical may ask whether you want US Cloud, EU Cloud, or a self-hosted instance. Choose the same cloud region you used when creating the account. If the CLI does not show a region picker and you are using EU Cloud, rerun as `infisical login --domain https://eu.infisical.com` or set `INFISICAL_API_URL=https://eu.infisical.com` before login. Complete the browser flow and come back to the terminal. **Do not paste an Infisical password, API key, token, or secret value into this chat.** Browser login is the safe path.
 >
 > When that finishes, come back and tell me `Infisical is signed in`."
 
@@ -576,11 +581,11 @@ Wait for the student to confirm. Then verify Infisical auth with a non-secret co
 infisical user
 ```
 
-If `infisical user` fails, stop and help the student complete `infisical login`. Never run `infisical user get token`, because it can print an access token. Do not run `infisical init`, do not create an Infisical project, and do not start Infisical Agent during baseline setup.
+If `infisical user` fails, stop and help the student complete `infisical login` in the same cloud region they used for account creation. Never run `infisical user get token`, because it can print an access token. Do not run `infisical init`, do not create an Infisical project, and do not start Infisical Agent during baseline setup.
 
 Tell the student:
 
-> "Infisical CLI is signed in. We are deliberately stopping before project or agent setup. Your repo will start on the 4D connector path. Later, if a local script, MCP server, scheduled job, or blueprint needs API-key environment variables, open Claude in your repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read Infisical machine identity details. Admin-write and break-glass credentials are separate facilitator/admin practices, not part of baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo."
+> "Infisical CLI is signed in. We are deliberately stopping before project or agent setup. Your repo will start on the 4D connector path. Later, if a local script, MCP server, scheduled job, or blueprint needs API-key environment variables, open Claude in your repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read Infisical machine identity details from the same Infisical region. Admin-write and break-glass credentials are separate facilitator/admin practices, not part of baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo."
 
 ### Step 5.3.5: Install the secrets guard
 
@@ -691,7 +696,7 @@ When the script completes, report:
 
 > "Your private workshop repo is ready! Your private `origin` is set up on your GitHub account, AI Build Lab's course repo is wired as `upstream` for cohort updates, and your local workshop folder is at `~/GitHub/agent-native-os`. You're safe to personalize this repo now."
 >
-> "Your secrets path starts as 4D connectors. When you need API-key environment variables, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details."
+> "Your secrets path starts as 4D connectors. When you need API-key environment variables, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region."
 
 ### Step 5.5: Cohort 1 migration path
 
@@ -736,7 +741,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
-> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
+> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
 >
 > **Your next step before the workshop: run `/personalize`**
 >
@@ -771,7 +776,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
-> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details.
+> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
 >
 > **Your next step before the workshop: run `/personalize`**
 >

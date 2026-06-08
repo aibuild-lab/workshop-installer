@@ -60,7 +60,7 @@ async function main() {
   console.log(`- origin: ${normalizeRemoteSlug(finalRemotes.origin)}`);
   console.log(`- upstream: ${COURSE_REPO}`);
   console.log("- Secrets path is set to 4D connectors by default.");
-  console.log("When you need API-key env vars, open Claude in your repo and run /upgrade-8d-secrets after a facilitator gives you scoped routine-read machine identity details.");
+  console.log("When you need API-key env vars, open Claude in your repo and run /upgrade-8d-secrets after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.");
   console.log("Next: open Claude Code inside this folder and run /update-course.");
 }
 

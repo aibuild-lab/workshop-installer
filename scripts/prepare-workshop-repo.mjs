@@ -215,7 +215,7 @@ async function main() {
   console.log("- Secrets path is set to 4D connectors by default.");
   console.log("- It is safe to personalize this local repo.");
   console.log("");
-  console.log("When you need API-key env vars, open Claude in your repo and run /upgrade-8d-secrets after a facilitator gives you scoped routine-read machine identity details.");
+  console.log("When you need API-key env vars, open Claude in your repo and run /upgrade-8d-secrets after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.");
   console.log(`Next: cd "${repoPath}" && claude`);
 }
 
