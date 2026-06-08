@@ -48,35 +48,53 @@ const DENY = [
 settings.permissions ??= {};
 settings.permissions.deny = Array.from(new Set([...(settings.permissions.deny ?? []), ...DENY]));
 
-// 2. hooks.PreToolUse / PostToolUse — append our matcher group if not already present.
+// 2. hooks.PreToolUse / PostToolUse — register (or repair) our matcher group.
 // Matcher covers both Bash and PowerShell: on Windows, Claude Code exposes a separate
 // PowerShell tool that a Bash-only matcher would never inspect.
 settings.hooks ??= {};
+
+// Both the node binary AND the hook script must be absolute, quoted, forward-slash paths
+// resolved at install time. There are two ways this silently fails otherwise, and a security
+// control that looks installed but protects nothing is the worst possible outcome:
+//   - A bare `node` is not on PATH in the shell Claude Code spawns hooks in (that shell has
+//     not loaded ~/.zshrc or Homebrew's shellenv). `node` becomes "command not found", the
+//     hook errors instead of returning a deny, and Claude Code runs the command UNGUARDED.
+//   - A bare `~` only expands in Git Bash; through PowerShell or cmd it passes literally.
+// process.execPath is the absolute path of the node already running this installer, so it is
+// guaranteed to exist. Forward slashes work for node on Windows too; quoting handles spaces.
+const nodeBin = process.execPath.split(path.sep).join('/');
+
 function ensureHook(event, script) {
   settings.hooks[event] ??= [];
-  const already = JSON.stringify(settings.hooks[event]).includes(script);
-  if (!already) {
-    // Absolute, quoted, forward-slash path resolved at install time. A bare `~` only
-    // expands in Git Bash; if Claude Code runs the hook through PowerShell or cmd, `~`
-    // would pass literally to node and the guard would silently fail to fire (the worst
-    // outcome for a security control: it looks installed but protects nothing). Forward
-    // slashes work for node on Windows too, and quoting handles usernames with spaces.
-    const hookPath = path.join(hooksDir, script).split(path.sep).join('/');
-    settings.hooks[event].push({
-      matcher: 'Bash|PowerShell',
-      hooks: [{ type: 'command', command: `node "${hookPath}"` }],
-    });
-    return true;
+  const hookPath = path.join(hooksDir, script).split(path.sep).join('/');
+  const command = `"${nodeBin}" "${hookPath}"`;
+  // Repair any existing entry that runs this script (for example an older bare-`node` command
+  // from a previous install) so re-running heals already-affected machines instead of skipping
+  // them. The bare-`node` bug shipped silently, so a no-op re-run would leave students exposed.
+  for (const group of settings.hooks[event]) {
+    if (!group || !Array.isArray(group.hooks)) continue;
+    for (const h of group.hooks) {
+      if (h && typeof h.command === 'string' && h.command.includes(script)) {
+        if (h.command === command) return 'already correct';
+        h.command = command;
+        return 'repaired';
+      }
+    }
   }
-  return false;
+  settings.hooks[event].push({
+    matcher: 'Bash|PowerShell',
+    hooks: [{ type: 'command', command }],
+  });
+  return 'added';
 }
-const addedPre = ensureHook('PreToolUse', 'secrets-guard.js');
-const addedPost = ensureHook('PostToolUse', 'secrets-tripwire.js');
+const preStatus = ensureHook('PreToolUse', 'secrets-guard.js');
+const postStatus = ensureHook('PostToolUse', 'secrets-tripwire.js');
 
 fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 
 console.log('Secrets guard installed.');
-console.log(`  PreToolUse  (secrets-guard.js):   ${addedPre ? 'added' : 'already present'}`);
-console.log(`  PostToolUse (secrets-tripwire.js): ${addedPost ? 'added' : 'already present'}`);
+console.log(`  PreToolUse  (secrets-guard.js):   ${preStatus}`);
+console.log(`  PostToolUse (secrets-tripwire.js): ${postStatus}`);
+console.log(`  Hook runtime: ${nodeBin}`);
 console.log(`  Read deny rules: ${settings.permissions.deny.length}`);
 console.log('Restart Claude Code (or start a new session) for the hooks to take effect.');
