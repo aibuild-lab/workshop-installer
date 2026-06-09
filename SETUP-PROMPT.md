@@ -585,7 +585,7 @@ If `infisical user` fails, stop and help the student complete `infisical login` 
 
 Tell the student:
 
-> "Infisical CLI is signed in. We are deliberately stopping before project or agent setup. Your repo will start on the 4D connector path. Later, if a local script, MCP server, scheduled job, or blueprint needs API-key environment variables, open Claude in your repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read Infisical machine identity details from the same Infisical region. Admin-write and break-glass credentials are separate facilitator/admin practices, not part of baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo."
+> "Infisical CLI is signed in. We are deliberately stopping before project or agent setup. Your repo will start on the 4D connector path. Later, if a local script, MCP server, scheduled job, or blueprint needs API-key environment variables, open Claude in your repo and run `/upgrade-8d-secrets`. Claude will help you create a student-owned Infisical project and routine-read identity, or use details from a facilitator/team admin when you are in a managed workspace. Admin-write and break-glass credentials are separate admin practices, not part of baseline setup. Later 8D automation field notes live inside your private `agent-native-os` repo."
 
 ### Step 5.3.5: Install the secrets guard
 
@@ -722,7 +722,7 @@ When the script completes, report:
 
 > "Your private workshop repo is ready! Your private `origin` is set up on your GitHub account, AI Build Lab's course repo is wired as `upstream` for cohort updates, and your local workshop folder is at `~/GitHub/agent-native-os`. You're safe to personalize this repo now."
 >
-> "Your secrets path starts as 4D connectors. When you need API-key environment variables, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region."
+> "Your secrets path starts as 4D connectors. When you need API-key environment variables, open Claude in this repo and run `/upgrade-8d-secrets`. Claude will help you create or use a scoped routine-read Infisical identity."
 
 ### Step 5.5: Cohort 1 migration path
 
@@ -767,7 +767,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
-> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
+> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets`. Claude will help you create or use a scoped routine-read Infisical identity.
 >
 > **Your next step before the workshop: run `/personalize`**
 >
@@ -802,7 +802,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
-> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets` after a facilitator gives you scoped routine-read machine identity details from the same Infisical region.
+> Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets`. Claude will help you create or use a scoped routine-read Infisical identity.
 >
 > **Your next step before the workshop: run `/personalize`**
 >
