@@ -35,6 +35,11 @@ const CASES = [
   // --- other legitimate forms ---
   ['Bash', 'op run -- npm test', 'allow'],
   ['Bash', 'infisical run -- npm test', 'allow'],
+  // --env-file is an OPTION (loads a file into the child), not the `-- env` dump
+  // command. The guard must not confuse the two. (regression: --\s* false positive)
+  ['Bash', 'op run --env-file=secrets.env -- npm start', 'allow'],
+  ['Bash', 'op run --env-file=.env.prod -- ./deploy.sh', 'allow'],
+  ['Bash', 'infisical run --env-file="creds.env" -- node server.js', 'allow'],
   ['Bash', `op read "op://Agent Vault/Anthropic API Key/credential" | head -c 4`, 'allow'],
   ['Bash', 'printenv PATH', 'allow'],
   ['Bash', 'env FOO=bar npm start', 'allow'],
@@ -57,6 +62,8 @@ const CASES = [
   // --- runtime-injection-wrapped env dumps (the bypass #9 closes) ---
   ['Bash', 'infisical run -- printenv', 'deny'],
   ['Bash', 'op run -- printenv', 'deny'],
+  // --env-file flag is fine, but a real `-- env` dump tail after it must still block.
+  ['Bash', 'op run --env-file=x.env -- env', 'deny'],
 
   // --- assignment-only env still dumps the environment ---
   ['Bash', 'env FOO=bar', 'deny'],
