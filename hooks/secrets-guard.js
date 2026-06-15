@@ -72,7 +72,7 @@ function isMaskedClause(clause) {
 
 // --- ALLOWLIST: runtime injection. Secrets go process->process, never to stdout. ---
 // But do not allow a runtime-injected process to be an env dump.
-if (/\b(infisical|op)\s+run\b[^\n;&|]*--\s*(?:['"]?\s*)?(?:env|printenv|run-printenv)\b/i.test(c))
+if (/\b(infisical|op)\s+run\b[^\n;&|]*--\s+(?:['"]?\s*)?(?:env|printenv|run-printenv)\b/i.test(c))
   deny('Runtime injection wrapped around env/printenv still dumps injected secrets to stdout. Run the real command under the secrets manager instead.');
 if (/\b(infisical|op)\s+run\b/.test(c)) process.exit(0);
 
