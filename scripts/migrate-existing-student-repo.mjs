@@ -174,6 +174,14 @@ function buildPlan(repoRoot, remotes, githubUser, branch) {
     fail(`Existing upstream does not point at ${COURSE_REPO}: ${preview.upstream}`);
   }
 
+  plan.push({
+    label: "Pull latest course content from upstream so private copy starts up to date",
+    run: () => {
+      git(repoRoot, ["fetch", "upstream", "main"]);
+      git(repoRoot, ["merge", "upstream/main", "--no-edit"]);
+    },
+  });
+
   if (preview.origin) {
     verifyPrivateOrigin(preview.origin, githubUser);
   } else {
@@ -199,10 +207,6 @@ function buildPlan(repoRoot, remotes, githubUser, branch) {
     }
   }
 
-  plan.push({
-    label: "Fetch AI Build Lab upstream main",
-    run: () => git(repoRoot, ["fetch", "upstream", "main"]),
-  });
   plan.push({
     label: "Ensure .aibl/ is ignored locally",
     run: () => ensureAiblIgnored(repoRoot),
