@@ -174,6 +174,25 @@ function buildPlan(repoRoot, remotes, githubUser, branch) {
     fail(`Existing upstream does not point at ${COURSE_REPO}: ${preview.upstream}`);
   }
 
+  plan.push({
+    label: "Pull latest course content from upstream so private copy starts up to date",
+    run: () => {
+      git(repoRoot, ["fetch", "upstream", "main"]);
+      const merge = git(repoRoot, ["merge", "upstream/main", "--no-edit"], { allowFail: true });
+      if (merge.status !== 0) {
+        git(repoRoot, ["merge", "--abort"], { allowFail: true });
+        fail(
+          [
+            "Your local commits conflict with the latest course content, so I stopped and undid the merge.",
+            "Your repo is back the way it was before I started.",
+            "",
+            "Bring this to a workshop helper — reconciling these changes needs a human.",
+          ].join("\n"),
+        );
+      }
+    },
+  });
+
   if (preview.origin) {
     verifyPrivateOrigin(preview.origin, githubUser);
   } else {
@@ -199,10 +218,6 @@ function buildPlan(repoRoot, remotes, githubUser, branch) {
     }
   }
 
-  plan.push({
-    label: "Fetch AI Build Lab upstream main",
-    run: () => git(repoRoot, ["fetch", "upstream", "main"]),
-  });
   plan.push({
     label: "Ensure .aibl/ is ignored locally",
     run: () => ensureAiblIgnored(repoRoot),
@@ -322,8 +337,8 @@ function normalizeRemoteSlug(remoteUrl) {
   return `${parts[0]}/${parts[1]}`.toLowerCase();
 }
 
-function git(repoRoot, gitArgs) {
-  return run("git", ["-C", repoRoot, ...gitArgs]);
+function git(repoRoot, gitArgs, options = {}) {
+  return run("git", ["-C", repoRoot, ...gitArgs], options);
 }
 
 function run(command, commandArgs, options = {}) {
