@@ -178,7 +178,18 @@ function buildPlan(repoRoot, remotes, githubUser, branch) {
     label: "Pull latest course content from upstream so private copy starts up to date",
     run: () => {
       git(repoRoot, ["fetch", "upstream", "main"]);
-      git(repoRoot, ["merge", "upstream/main", "--no-edit"]);
+      const merge = git(repoRoot, ["merge", "upstream/main", "--no-edit"], { allowFail: true });
+      if (merge.status !== 0) {
+        git(repoRoot, ["merge", "--abort"], { allowFail: true });
+        fail(
+          [
+            "Your local commits conflict with the latest course content, so I stopped and undid the merge.",
+            "Your repo is back the way it was before I started.",
+            "",
+            "Bring this to a workshop helper — reconciling these changes needs a human.",
+          ].join("\n"),
+        );
+      }
     },
   });
 
@@ -326,8 +337,8 @@ function normalizeRemoteSlug(remoteUrl) {
   return `${parts[0]}/${parts[1]}`.toLowerCase();
 }
 
-function git(repoRoot, gitArgs) {
-  return run("git", ["-C", repoRoot, ...gitArgs]);
+function git(repoRoot, gitArgs, options = {}) {
+  return run("git", ["-C", repoRoot, ...gitArgs], options);
 }
 
 function run(command, commandArgs, options = {}) {
