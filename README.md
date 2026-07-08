@@ -5,6 +5,7 @@ A guided setup for the workshop's required tools and first safe repo:
 - Git
 - Node.js
 - GitHub CLI
+- Python environment manager (`uv`, unless you already have Conda/Mamba/pyenv/mise with Python 3.10+)
 - Claude Code
 - Infisical CLI
 - A private GitHub repo at `<your-username>/agent-native-os-private`, seeded from `aibuild-lab/agent-native-os`
@@ -32,6 +33,66 @@ What the migration does:
 - preserves old separate Cairns clones if you have them
 
 ## How to install
+
+The Claude-guided flow below remains the primary install path for now. There is also an opt-in deterministic installer beta if you want to test the scripted path without changing this flow.
+
+### Deterministic installer beta
+
+This is a parallel beta path. It is designed to be deterministic and resumable, but it does not replace the Claude-guided setup yet.
+
+#### Dry run first
+
+Use dry-run mode to see what the installer would do without installing tools or changing repos.
+
+**macOS Terminal:**
+
+```bash
+mkdir -p "$HOME/GitHub"
+if [ ! -d "$HOME/GitHub/workshop-installer/.git" ]; then git clone https://github.com/aibuild-lab/workshop-installer.git "$HOME/GitHub/workshop-installer"; fi
+cd "$HOME/GitHub/workshop-installer"
+git pull --ff-only
+node install.mjs --dry-run
+```
+
+**Windows PowerShell:**
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\GitHub" | Out-Null
+if (!(Test-Path "$HOME\GitHub\workshop-installer\.git")) { git clone https://github.com/aibuild-lab/workshop-installer.git "$HOME\GitHub\workshop-installer" }
+Set-Location "$HOME\GitHub\workshop-installer"
+git pull --ff-only
+node install.mjs --dry-run
+```
+
+#### Run the beta installer
+
+The default workspace is `~/GitHub`. To choose another local parent folder, pass it as `--workspace` or as the first launcher argument. Do not use Dropbox, OneDrive, iCloud Drive, Google Drive, Box, or Creative Cloud Files for workshop repos.
+
+**macOS Terminal:**
+
+```bash
+bash install.sh --workspace "$HOME/GitHub"
+```
+
+**Windows PowerShell:**
+
+```powershell
+.\install.ps1 --workspace "$HOME\GitHub"
+```
+
+For Cohort 1 students who already have an `agent-native-os` clone that needs migration, add `--cohort1`:
+
+```bash
+node install.mjs --cohort1
+```
+
+If a browser sign-in step stops the installer, complete the sign-in it prints, then rerun:
+
+```bash
+node install.mjs --resume
+```
+
+### Claude-guided install (primary)
 
 1. **Open Claude Desktop.** If you don't have it, download from [claude.ai/download](https://claude.ai/download) and sign in with your Claude account.
 
@@ -176,11 +237,16 @@ After the shell config audit is clean, open a fresh Terminal window and run:
 git --version
 node --version
 gh --version
+uv --version
 claude --version
 infisical --version
 ```
 
-All five should return version strings.
+All six should return version strings if the installer added `uv`. If you already had Conda, Mamba, pyenv, or mise with Python 3.10+, `uv` may be intentionally skipped; in that case verify your existing manager and Python instead:
+
+```
+python --version
+```
 
 ## Verify your install (Windows users)
 
@@ -199,6 +265,10 @@ gh --version
 ```
 
 ```
+uv --version
+```
+
+```
 claude --version
 ```
 
@@ -206,7 +276,7 @@ claude --version
 infisical --version
 ```
 
-All five should return version strings. If any fail, the install step for that specific tool didn't complete. Re-run the SETUP-PROMPT.md flow in Claude Desktop and it will detect what's still missing and finish the job.
+All six should return version strings if the installer added `uv`. If you already had Conda, Mamba, pyenv, or mise with Python 3.10+, `uv` may be intentionally skipped; verify your existing manager and Python instead. If any required tool fails, re-run the SETUP-PROMPT.md flow in Claude Desktop and it will detect what's still missing and finish the job.
 
 **Why a fresh PowerShell window:** PATH and environment variable updates from the install only take effect for new shells, not the one that ran the install. If you run the version commands in the same PowerShell that ran the install, you may see false "command not found" errors. Always open a fresh PowerShell window for verification.
 

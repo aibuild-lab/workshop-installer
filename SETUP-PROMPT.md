@@ -1,6 +1,6 @@
 # AI Build Lab Workshop Setup
 
-You are helping a student set up the AI Build Lab workshop environment. Your job is to install five required tools (Git, Node.js, GitHub CLI, Claude Code, and Infisical CLI), verify they all work, and prepare the student's private workshop repo before personalization. If the student says they are from Cohort 1 and already cloned `agent-native-os`, use the Cohort 1 migration path in Step 5.5 instead of creating a fresh folder.
+You are helping a student set up the AI Build Lab workshop environment. Your job is to install the required setup components (Git, Node.js, GitHub CLI, a Python environment, Claude Code, and Infisical CLI), verify they all work, and prepare the student's private workshop repo before personalization. If the student says they are from Cohort 1 and already cloned `agent-native-os`, use the Cohort 1 migration path in Step 5.5 instead of creating a fresh folder.
 
 ## Your behavioral rules
 
@@ -35,7 +35,7 @@ These rules apply throughout. Follow them carefully.
 
      > "Yes, click Trust. What it means: Claude Code (the engine inside Claude Desktop that runs commands during this install) can read and edit files in the folder you selected, with your permission, so it can run this setup. What it doesn't mean: it does NOT give Claude access to your whole computer or any folder outside the one you picked. You stay in control, and every meaningful change is announced first.
      >
-     > One important note on privacy: Claude is still a cloud AI tool. Your chat messages, the file context you choose to share, command output, and tool results may be sent to Anthropic as part of normal Claude operation under your Claude account. Don't paste passwords, API keys, or anything you wouldn't intentionally share with Claude. For this setup we only need your home-folder shell config files and the five developer tools listed."
+     > One important note on privacy: Claude is still a cloud AI tool. Your chat messages, the file context you choose to share, command output, and tool results may be sent to Anthropic as part of normal Claude operation under your Claude account. Don't paste passwords, API keys, or anything you wouldn't intentionally share with Claude. For this setup we only need your home-folder shell config files and the developer tools listed."
 
    - **macOS file-access popups** during install (less common but possible): macOS may prompt with messages like *"&lt;app&gt; wants access to files in your Documents folder"* for Documents, Downloads, Desktop, Applications, etc. When the student asks, tell them what to click:
 
@@ -47,7 +47,7 @@ These rules apply throughout. Follow them carefully.
 
 Greet the student briefly:
 
-> "Hi! I'm going to set up your machine for the AI Build Lab workshop. I'll install five tools (Git, Node.js, GitHub CLI, Claude Code, and Infisical CLI), verify they work, and then prepare your private workshop repo so personalization is safe. Before I start, let me check what operating system you're on and what's already installed."
+> "Hi! I'm going to set up your machine for the AI Build Lab workshop. I'll install the workshop tools (Git, Node.js, GitHub CLI, a Python environment, Claude Code, and Infisical CLI), verify they work, and then prepare your private workshop repo so personalization is safe. Before I start, let me check what operating system you're on and what's already installed."
 
 Detect OS by running `uname -s`:
 - Returns **Darwin** → student is on macOS → follow the **Mac path** (Step 3)
@@ -78,7 +78,7 @@ Detect OS by running `uname -s`:
 
 ## Step 2: Initial detection sweep + plan + ask
 
-Before installing anything, run a full detection sweep on all five tools (and the platform prerequisites). Then summarize what you found and the plan.
+Before installing anything, run a full detection sweep on all setup components (and the platform prerequisites). Then summarize what you found and the plan.
 
 For Mac, detect using the **three-state pattern from rule 4** (installed-on-PATH ✅ / installed-not-on-PATH ⚠️ / not-installed ❌). For every tool below, check `command -v <tool>` AND check the file system fallback paths. **A tool is only "not installed" if both checks fail.** If `command -v` fails but the binary exists at one of the file paths, it's installed-but-not-on-PATH (rule 8 applies):
 
@@ -87,6 +87,7 @@ For Mac, detect using the **three-state pattern from rule 4** (installed-on-PATH
 - **Git:** `command -v git`; fallback paths `/opt/homebrew/bin/git`, `/usr/local/bin/git`, `/Library/Developer/CommandLineTools/usr/bin/git` (CLT bundles git)
 - **Node.js:** `command -v node` + `node --version` for v18+; fallback paths `/opt/homebrew/bin/node`, `/usr/local/bin/node`
 - **GitHub CLI:** `command -v gh`; fallback paths `/opt/homebrew/bin/gh`, `/usr/local/bin/gh`
+- **Python environment:** check `command -v uv`; check existing managers with `command -v conda`, `command -v mamba`, `command -v micromamba`, `command -v pyenv`, `command -v mise`; check `python3 --version` or `python --version` and accept an existing manager only when Python is 3.10+
 - **Claude Code:** `command -v claude`; fallback path `~/.local/bin/claude`
 - **Infisical CLI:** `command -v infisical`; fallback paths `/opt/homebrew/bin/infisical`, `/usr/local/bin/infisical`
 
@@ -96,6 +97,7 @@ For Windows, detect:
 - Git (`Get-Command git`)
 - Node.js (`Get-Command node` + `node --version` for v18+)
 - GitHub CLI (`Get-Command gh`)
+- Python environment (`Get-Command uv`; existing managers with `Get-Command conda`, `Get-Command mamba`, `Get-Command micromamba`, `Get-Command pyenv`, `Get-Command mise`; check `python --version` and accept an existing manager only when Python is 3.10+)
 - Claude Code (`Get-Command claude`, plus check for `$env:USERPROFILE\.local\bin\claude.exe`)
 - Infisical CLI (`Get-Command infisical`, plus check for `$env:USERPROFILE\scoop\shims\infisical.exe`)
 
@@ -110,6 +112,7 @@ Then state findings + plan + ask. Example for a Mac student in a partial state (
 > - ❌ Git, not installed
 > - ❌ Node.js, not installed
 > - ❌ GitHub CLI, not installed
+> - ❌ Python environment, no accepted manager found
 > - ⚠️ Claude Code, installed at `~/.local/bin/claude`, but not on PATH
 > - ❌ Infisical CLI, not installed
 >
@@ -118,10 +121,11 @@ Then state findings + plan + ask. Example for a Mac student in a partial state (
 > 2. Install Git via Homebrew. Why: Git is the version control tool every workshop project uses.
 > 3. Install Node.js via Homebrew (v18 or newer). Why: Node is the runtime for npm-based dev tools and MCP servers we'll use later.
 > 4. Install GitHub CLI via Homebrew. Why: Lets you clone repos, sign in, and use GitHub from your terminal.
-> 5. Install Infisical CLI via Homebrew. Why: Gives you a secure command-line path for team-scale secrets later in the workshop.
-> 6. Install Claude Code via Anthropic's native installer. Why: It's the central workshop tool, and the native installer auto-updates in the background.
-> 7. Add Claude Code to your shell's PATH (a similar fix to the Homebrew one).
-> 8. Verify all five tools work end-to-end.
+> 5. Install uv for Python. Why: Some workshop blueprints use Python, and uv gives us an isolated Python runner without touching global packages.
+> 6. Install Infisical CLI via Homebrew. Why: Gives you a secure command-line path for team-scale secrets later in the workshop.
+> 7. Install Claude Code via Anthropic's native installer. Why: It's the central workshop tool, and the native installer auto-updates in the background.
+> 8. Add Claude Code to your shell's PATH (a similar fix to the Homebrew one).
+> 9. Verify everything works end-to-end.
 >
 > Sound good? I'll proceed once you confirm."
 
@@ -199,9 +203,9 @@ Then run `xcode-select --install` from your subshell. This triggers the system d
 
 If either full-path command returns a version, Homebrew is installed. If `command -v brew` still fails after that, treat it as installed-but-not-on-PATH and go to Step 3.5 to write the shellenv line. Do NOT reinstall Homebrew. Then **report** and continue.
 
-### Step 3.3: Git, Node.js, GitHub CLI, Infisical CLI (Claude Desktop runs these via brew)
+### Step 3.3: Git, Node.js, GitHub CLI, Python environment, Infisical CLI (Claude Desktop runs these via brew)
 
-For each of Git, Node.js, GitHub CLI, and Infisical CLI:
+For each of Git, Node.js, GitHub CLI, Python environment, and Infisical CLI:
 
 **Detect** (using the three-state pattern from rule 4 above).
 
@@ -212,6 +216,10 @@ Specific commands:
 - Git: `brew install git` → verify with `git --version`
 - Node.js: `brew install node` → verify with `node --version` (and check the major version is 18 or higher; if it returns a version like v16.x.x or older, run `brew upgrade node` to bring it current)
 - GitHub CLI: `brew install gh` → verify with `gh --version`
+- Python environment:
+  - If `uv --version` works, run `uv python install 3.12` and verify with `uv run --python 3.12 python --version`
+  - If `conda`, `mamba`, `micromamba`, `pyenv`, or `mise` is installed and `python3 --version` or `python --version` returns Python 3.10+, keep that existing manager and do not install uv
+  - Otherwise run `brew install uv`, then `uv python install 3.12`, then verify with `uv --version` and `uv run --python 3.12 python --version`
 - Infisical CLI: `brew install infisical/get-cli/infisical` → verify with `infisical --version`
 
 State the **why** for each, using these explanations as a starting point. Adapt the wording to your conversation, but keep the analogies and concrete examples since they help non-developer students build a real mental model.
@@ -227,6 +235,10 @@ State the **why** for each, using these explanations as a starting point. Adapt 
 **GitHub CLI:**
 
 > "GitHub is the website where your code and the workshop's example code live online. Normally you'd interact with GitHub through their website by clicking around in a browser to clone repos, push changes, and look at history. The GitHub CLI (a program called 'gh') is a power-user shortcut: same operations from your terminal, faster, and you only sign in once. We'll use it on Day 1 to clone the workshop's example repos and authenticate so future commits go to the right place. Think of it as a remote control for GitHub that lives in your terminal."
+
+**Python environment:**
+
+> "Python is used by some of the more advanced workshop blueprints, especially local Cairns and data-processing workflows. If you already have a real Python manager like Conda, Mamba, pyenv, or mise and it can run Python 3.10 or newer, we'll respect that and skip adding another manager. If not, we'll install uv. uv gives us a fast, isolated way to run Python scripts without dumping packages into your system Python or breaking an existing setup."
 
 **Infisical CLI:**
 
@@ -321,23 +333,27 @@ If a line is missing in either file, the write didn't work; redo Step 3.5 for th
 >     git --version
 >     node --version
 >     gh --version
+>     uv --version
 >     claude --version
 >     infisical --version
 >
-> All five should return version strings. If they all work, your install is verified end-to-end in your real shell, which is what you'll use for the workshop. Tell me when they all return version strings, or paste me any error you see."
+> If we kept your existing Conda, Mamba, pyenv, or mise setup instead of installing uv, run that manager's version command and `python3 --version` instead of `uv --version`.
+>
+> Everything should return version strings. If it all works, your install is verified end-to-end in your real shell, which is what you'll use for the workshop. Tell me when they all return version strings, or paste me any error you see."
 
 **Important: do NOT rely on `command -v <tool>` in your own subshell as the verification.** After the PATH fix, your subshell still won't see the tools because it doesn't reload rc files mid-session. The user's fresh Terminal output is the real signal.
 
-If all five work in their fresh Terminal, the install is verified. Move on to Step 5.
+If everything works in their fresh Terminal, the install is verified. Move on to Step 5.
 
 If any fail in their fresh Terminal, that's a real install problem. Ask for a screenshot per Rule 5 and diagnose.
 
 **Report** with a summary like:
 
-> "✅ All five tools verified working:
+> "✅ Workshop setup verified:
 > - Git 2.54.0
 > - Node.js 22.15.0
 > - GitHub CLI 2.92.0
+> - Python environment: uv 0.x with Python 3.12.x, or existing Conda/Mamba/pyenv/mise with Python 3.10+
 > - Claude Code 2.1.123
 > - Infisical CLI 0.43.84"
 
@@ -375,6 +391,37 @@ Specific commands:
 - GitHub CLI: `winget install --id GitHub.cli --source winget --accept-package-agreements --accept-source-agreements` → verify with `gh --version`
 
 State the **why** for each, using the same expanded explanations from Step 3.3 above (Git as Google Drive on steroids, Node.js as the engine in a car, GitHub CLI as a remote control for GitHub). Keep the experience consistent across platforms.
+
+### Step 4.2.5: Python environment
+
+**Detect** Python environment:
+- `Get-Command uv` returns a path → uv is installed ✅
+- One of `conda`, `mamba`, `micromamba`, `pyenv`, or `mise` exists AND `python --version` returns Python 3.10+ → existing Python manager is acceptable ✅
+- `python --version` returns Python 3.10+ but no manager is present → Python exists, but install uv so workshop Python workflows have an environment manager ⚠️
+- None of the above → install uv ❌
+
+**State + plan.** Use the same Python explanation from Step 3.3. Be explicit that existing Conda/Mamba/pyenv/mise users do not need a second manager if their Python is modern enough.
+
+**If uv is already installed**, run:
+```
+uv python install 3.12
+```
+
+**If an existing manager is acceptable**, skip uv and report that you're respecting the student's existing Python setup.
+
+**Otherwise install uv**, then install Python 3.12 through uv:
+```
+winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements
+uv python install 3.12
+```
+
+**Verify uv path** with:
+```
+uv --version
+uv run --python 3.12 python --version
+```
+
+If you skipped uv because an existing manager was acceptable, verify the manager command plus `python --version` instead.
 
 ### Step 4.3: Configure Git Bash for Claude Code
 
@@ -466,10 +513,11 @@ infisical --version
 
 ### Step 4.8: Final verification (Windows)
 
-Run all five version commands:
+Run all required version commands:
 - `git --version`
 - `node --version`
 - `gh --version`
+- `uv --version` if uv was installed, otherwise the existing manager command plus `python --version`
 - `claude --version`
 - `infisical --version`
 
@@ -755,6 +803,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 > - **Git** X.Y.Z
 > - **Node.js** vX.Y.Z
 > - **GitHub CLI** X.Y.Z
+> - **Python environment** uv 0.x with Python 3.12.x, or existing Conda/Mamba/pyenv/mise with Python 3.10+
 > - **Claude Code** X.Y.Z
 > - **Infisical CLI** X.Y.Z, signed in
 > - **Your private workshop repo** at `~/GitHub/agent-native-os`
@@ -765,7 +814,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > **Your private GitHub repo:** `<your-username>/agent-native-os-private`. This is where your changes get pushed. Only you can see it. The cohort source stays at `aibuild-lab/agent-native-os` and you'll pull updates from there when AI Build Lab ships new material.
 >
-> All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
+> The workshop tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
 > Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets`. Claude will help you create or use a scoped routine-read Infisical identity.
 >
@@ -790,6 +839,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 > - **Git** X.Y.Z
 > - **Node.js** vX.Y.Z
 > - **GitHub CLI** X.Y.Z
+> - **Python environment** uv 0.x with Python 3.12.x, or existing Conda/Mamba/pyenv/mise with Python 3.10+
 > - **Claude Code** X.Y.Z
 > - **Infisical CLI** X.Y.Z, signed in
 > - **Your private workshop repo** at `~/GitHub/agent-native-os`
@@ -800,7 +850,7 @@ After GitHub, Claude Code, and Infisical CLI sign-ins are done and the private r
 >
 > **Your private GitHub repo:** `<your-username>/agent-native-os-private`. This is where your changes get pushed. Only you can see it. The cohort source stays at `aibuild-lab/agent-native-os` and you'll pull updates from there when AI Build Lab ships new material.
 >
-> All five tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
+> The workshop tools are installed, and GitHub, Claude Code, and Infisical CLI are signed in and working. Your private repo is ready and confirmed private.
 >
 > Your secrets path starts as **4D connectors**. When you need API-key env vars for a local script, MCP server, scheduled job, or 8D blueprint, open Claude in this repo and run `/upgrade-8d-secrets`. Claude will help you create or use a scoped routine-read Infisical identity.
 >

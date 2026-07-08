@@ -1,15 +1,15 @@
 # Manual Install Guide — AI Build Lab Workshop Tools
 
-This guide walks through installing the five workshop tools (**Git**, **Node.js**, **GitHub CLI**, **Claude Code**, **Infisical CLI**) one step at a time, on your own. Use it when:
+This guide walks through installing the workshop setup components (**Git**, **Node.js**, **GitHub CLI**, a Python environment, **Claude Code**, **Infisical CLI**) one step at a time, on your own. Use it when:
 
-- The automatic installer ([install.ps1 / install.sh](README.md#install--pick-the-one-for-your-operating-system)) failed for some reason
+- The deterministic installer beta ([install.ps1 / install.sh](README.md#deterministic-installer-beta)) failed for some reason
 - You want to understand exactly what's getting installed before you run anything
 - You hit an edge case the installer doesn't handle (uncommon, but possible)
 - You're learning, and prefer step-by-step over magic one-liners
 
 Every step shows you the command, what to expect, and what to do if something goes wrong.
 
-After the five tools are installed and `gh auth login`, `claude`, and `infisical login` are working, prepare your private workshop repo before you personalize anything. The safe model is: AI Build Lab's public repo is `upstream`; your private repo is `origin`.
+After the tools are installed and `gh auth login`, `claude`, and `infisical login` are working, prepare your private workshop repo before you personalize anything. The safe model is: AI Build Lab's public repo is `upstream`; your private repo is `origin`.
 
 ---
 
@@ -35,6 +35,13 @@ winget install --id OpenJS.NodeJS.LTS --source winget --accept-package-agreement
 
 ```powershell
 winget install --id GitHub.cli --source winget --accept-package-agreements --accept-source-agreements
+```
+
+**Install uv for Python (skip if you already have Conda, Mamba, pyenv, or mise with Python 3.10+):**
+
+```powershell
+winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements
+uv python install 3.12
 ```
 
 **Install Claude Code:**
@@ -98,6 +105,13 @@ brew install node
 
 ```bash
 brew install gh
+```
+
+**Install uv for Python (skip if you already have Conda, Mamba, pyenv, or mise with Python 3.10+):**
+
+```bash
+brew install uv
+uv python install 3.12
 ```
 
 **Install Claude Code:**
@@ -196,7 +210,7 @@ Do not paste secret values, API keys, Infisical tokens, or 1Password item conten
 
 ## Verify before you start
 
-These five commands tell you what's already installed. Run them first — anything that returns a real version is something you can skip.
+These commands tell you what's already installed. Run them first — anything that returns a real version is something you can skip. For Python, keep an existing Conda, Mamba, pyenv, or mise setup if it can run Python 3.10 or newer; otherwise install `uv`.
 
 ### Windows (PowerShell)
 
@@ -204,8 +218,10 @@ These five commands tell you what's already installed. Run them first — anythi
 git --version
 node --version
 gh --version
+uv --version
 claude --version
 infisical --version
+python --version
 ```
 
 ### macOS (Terminal)
@@ -214,14 +230,16 @@ infisical --version
 git --version
 node --version
 gh --version
+uv --version
 claude --version
 infisical --version
+python3 --version
 ```
 
 For each command:
 - **Returns a version like `git version 2.54.0`** → that tool is installed, skip it
 - **Returns `command not found` or similar** → you'll install it below
-- **Returns a version BUT it's older than what we need** → for Node specifically, we need v18 or newer. If you see `v16.x.x` or older, you'll upgrade
+- **Returns a version BUT it's older than what we need** → for Node we need v18 or newer; for Python we need 3.10 or newer
 
 ---
 
@@ -345,7 +363,35 @@ gh --version
 
 Expected output: `gh version 2.92.0 (2026-04-28)` (or similar)
 
-### Step 5 — Install Claude Code (native binary)
+### Step 5 — Install or verify Python environment
+
+**Why:** Some workshop blueprints and Cairns workflows use Python. If you already have Conda, Mamba, pyenv, or mise with Python 3.10+, keep using it and skip installing another manager. Otherwise install `uv`, which gives the workshop a fast, isolated Python runner without touching global packages.
+
+**If you already have a manager, verify it:**
+
+```powershell
+python --version
+```
+
+If that returns Python 3.10 or newer and your manager command works (`conda --version`, `mamba --version`, `micromamba --version`, `pyenv --version`, or `mise --version`), skip to Step 6.
+
+**Otherwise install uv:**
+
+```powershell
+winget install --id=astral-sh.uv -e --accept-package-agreements --accept-source-agreements
+uv python install 3.12
+```
+
+**Verify:**
+
+```powershell
+uv --version
+uv run --python 3.12 python --version
+```
+
+Expected output: a `uv` version and `Python 3.12.x`.
+
+### Step 6 — Install Claude Code (native binary)
 
 **Why:** This is the workshop's central tool. We use Anthropic's native binary install path because it auto-updates and is Anthropic's recommended setup.
 
@@ -364,7 +410,7 @@ irm https://claude.ai/install.ps1 | iex
 
 **⚠️ Important — the PATH gotcha:** Anthropic's installer **does NOT add `~\.local\bin` to your PATH automatically.** It tells you to do it yourself. The next step handles that.
 
-### Step 6 — Add Claude's install dir to your User PATH
+### Step 7 — Add Claude's install dir to your User PATH
 
 **Why:** Without this, typing `claude` in a new PowerShell window will say "command not recognized" because Windows doesn't know where to find `claude.exe`.
 
@@ -393,7 +439,7 @@ Expected output: `2.1.123 (Claude Code)` (or similar — version may differ)
 - *"`claude` not recognized"* even after this step → close ALL PowerShell windows and open a fresh one. The environment update only applies to shells started after the change.
 - The PATH already contains `\.local\bin` (you added it before) → harmless, just adds a duplicate entry. You can manually remove duplicates via Settings → System → About → Advanced system settings → Environment Variables → User PATH → edit.
 
-### Step 7 — Set PowerShell ExecutionPolicy
+### Step 8 — Set PowerShell ExecutionPolicy
 
 **Why:** Default Windows 11 PowerShell blocks all `.ps1` scripts. Some workshop tools you'll install later via npm create `.ps1` wrappers (like `claude.ps1` would, if you'd used the npm install path). Setting `RemoteSigned` allows local scripts to run while still blocking unsigned remote ones — the standard developer-machine policy.
 
@@ -417,7 +463,7 @@ Get-ExecutionPolicy -Scope CurrentUser
 
 Expected output: `RemoteSigned`
 
-### Step 8 — Install Scoop and Infisical CLI
+### Step 9 — Install Scoop and Infisical CLI
 
 **Why:** Infisical CLI makes the machine 8D-ready for later env-var tools. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project, run `infisical init`, or start Infisical Agent.
 
@@ -427,7 +473,7 @@ Expected output: `RemoteSigned`
 iwr -useb get.scoop.sh | iex
 ```
 
-If that fails with a script execution policy error, rerun Step 7:
+If that fails with a script execution policy error, rerun Step 8:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
@@ -450,7 +496,7 @@ infisical --version
 
 Expected output: `infisical version 0.x.x` or similar.
 
-### Step 9 — Final verification
+### Step 10 — Final verification
 
 In a brand-new PowerShell window:
 
@@ -458,13 +504,14 @@ In a brand-new PowerShell window:
 git --version
 node --version
 gh --version
+uv --version
 claude --version
 infisical --version
 ```
 
-All five should return real version strings. If any return "command not recognized," go back to that tool's step and check the Verify section.
+All six should return real version strings if you installed `uv`. If you kept an existing Python manager instead, verify that manager plus `python --version` instead of `uv --version`. If any required tool returns "command not recognized," go back to that tool's step and check the Verify section.
 
-### Step 10 — Sign in to GitHub, Claude, and Infisical
+### Step 11 — Sign in to GitHub, Claude, and Infisical
 
 **GitHub:**
 
@@ -640,7 +687,35 @@ gh --version
 
 Expected output: `gh version 2.92.0 (2026-04-28)`
 
-### Step 6 — Install Claude Code (native binary)
+### Step 6 — Install or verify Python environment
+
+**Why:** Some workshop blueprints and Cairns workflows use Python. If you already have Conda, Mamba, pyenv, or mise with Python 3.10+, keep using it and skip installing another manager. Otherwise install `uv`, which gives the workshop a fast, isolated Python runner without touching global packages.
+
+**If you already have a manager, verify it:**
+
+```bash
+python3 --version
+```
+
+If that returns Python 3.10 or newer and your manager command works (`conda --version`, `mamba --version`, `micromamba --version`, `pyenv --version`, or `mise --version`), skip to Step 7.
+
+**Otherwise install uv:**
+
+```bash
+brew install uv
+uv python install 3.12
+```
+
+**Verify:**
+
+```bash
+uv --version
+uv run --python 3.12 python --version
+```
+
+Expected output: a `uv` version and `Python 3.12.x`.
+
+### Step 7 — Install Claude Code (native binary)
 
 **Why:** Same reasoning as Windows — we use Anthropic's native binary path because it auto-updates and is Anthropic's recommended install.
 
@@ -672,7 +747,7 @@ Expected output: `2.1.123 (Claude Code)`
   Or close the Terminal window and open a new one.
 - The install fails partway through → check internet, then retry. The Anthropic install is well-tested but does fail occasionally on flaky connections.
 
-### Step 7 — Install Infisical CLI via Homebrew
+### Step 8 — Install Infisical CLI via Homebrew
 
 **Why:** Infisical CLI makes the machine 8D-ready for later env-var tools. This baseline setup only installs the CLI and signs you in. It does not create an Infisical project, run `infisical init`, or start Infisical Agent.
 
@@ -690,7 +765,7 @@ infisical --version
 
 Expected output: `infisical version 0.x.x` or similar.
 
-### Step 8 — Final verification
+### Step 9 — Final verification
 
 In a brand-new Terminal window:
 
@@ -698,13 +773,14 @@ In a brand-new Terminal window:
 git --version
 node --version
 gh --version
+uv --version
 claude --version
 infisical --version
 ```
 
-All five should return real version strings.
+All six should return real version strings if you installed `uv`. If you kept an existing Python manager instead, verify that manager plus `python3 --version` instead of `uv --version`.
 
-### Step 9 — Sign in to GitHub, Claude, and Infisical
+### Step 10 — Sign in to GitHub, Claude, and Infisical
 
 **GitHub:**
 
@@ -756,7 +832,7 @@ File C:\Users\<you>\AppData\Roaming\npm\<tool>.ps1 cannot be loaded because runn
 
 **Why it happens:** Default Windows 11 PowerShell ExecutionPolicy is `Restricted`, which blocks all `.ps1` scripts including npm-installed wrappers.
 
-**Fix:** Run Step 7 of the Windows guide:
+**Fix:** Run Step 8 of the Windows guide:
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
 ```
@@ -765,7 +841,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
 
 **Why it happens:** `claude.exe` is at `C:\Users\<you>\.local\bin\` but that directory isn't on your PATH.
 
-**Fix:** Run Step 6 of the Windows guide, then open a new PowerShell window.
+**Fix:** Run Step 7 of the Windows guide, then open a new PowerShell window.
 
 ### Error: `claude: command not found` (macOS)
 
