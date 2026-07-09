@@ -49,8 +49,10 @@ settings.permissions ??= {};
 settings.permissions.deny = Array.from(new Set([...(settings.permissions.deny ?? []), ...DENY]));
 
 // 2. hooks.PreToolUse / PostToolUse — register (or repair) our matcher group.
-// Matcher covers both Bash and PowerShell: on Windows, Claude Code exposes a separate
-// PowerShell tool that a Bash-only matcher would never inspect.
+// PreToolUse matcher covers Bash + PowerShell (Windows exposes a separate PowerShell
+// tool a Bash-only matcher would miss) AND Write|Edit|MultiEdit|NotebookEdit, so the
+// content guard can block a real key written straight into a tracked file. PostToolUse
+// stays Bash|PowerShell (the tripwire scans command stdout).
 settings.hooks ??= {};
 
 // Both the node binary AND the hook script must be absolute, quoted, forward-slash paths
@@ -64,7 +66,7 @@ settings.hooks ??= {};
 // guaranteed to exist. Forward slashes work for node on Windows too; quoting handles spaces.
 const nodeBin = process.execPath.split(path.sep).join('/');
 
-function ensureHook(event, script) {
+function ensureHook(event, script, matcher) {
   settings.hooks[event] ??= [];
   const hookPath = path.join(hooksDir, script).split(path.sep).join('/');
   const command = `"${nodeBin}" "${hookPath}"`;
@@ -75,20 +77,24 @@ function ensureHook(event, script) {
     if (!group || !Array.isArray(group.hooks)) continue;
     for (const h of group.hooks) {
       if (h && typeof h.command === 'string' && h.command.includes(script)) {
-        if (h.command === command) return 'already correct';
+        // Self-heal the matcher too: an older install wired a narrower matcher
+        // (Bash|PowerShell) that never routes Write/Edit events to the content guard.
+        const matcherStale = group.matcher !== matcher;
+        if (matcherStale) group.matcher = matcher;
+        if (h.command === command) return matcherStale ? 'repaired (matcher)' : 'already correct';
         h.command = command;
         return 'repaired';
       }
     }
   }
   settings.hooks[event].push({
-    matcher: 'Bash|PowerShell',
+    matcher,
     hooks: [{ type: 'command', command }],
   });
   return 'added';
 }
-const preStatus = ensureHook('PreToolUse', 'secrets-guard.js');
-const postStatus = ensureHook('PostToolUse', 'secrets-tripwire.js');
+const preStatus = ensureHook('PreToolUse', 'secrets-guard.js', 'Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit');
+const postStatus = ensureHook('PostToolUse', 'secrets-tripwire.js', 'Bash|PowerShell');
 
 fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 
