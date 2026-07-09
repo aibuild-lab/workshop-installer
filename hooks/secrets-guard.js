@@ -8,8 +8,9 @@
 // Secret-name match spans KEY/TOKEN/SECRET/PASSWORD/CREDENTIAL forms on both shells.
 // Vault-agnostic: covers 1Password (op), Infisical, Bitwarden (bw), and the
 // universal leaks (env / cat .env / language-eval) that no vault choice prevents.
-// Allows runtime injection (op run / infisical run) unless the wrapped command is
-// itself an env dump. Blocks raw op reads; masked first4 checks remain allowed.
+// Allows runtime injection (op run / infisical run) but re-vets the WRAPPED command, so
+// `op run -- cat .env` can't dump. Blocks raw op reads AND printed `$(op read …)` command
+// substitution; feeding a program `"$(op read …)"` and masked first4 checks stay allowed.
 
 const fs = require('fs');
 
@@ -29,10 +30,40 @@ try { raw = fs.readFileSync(0, 'utf8'); } catch (_) { process.exit(0); }
 let input;
 try { input = JSON.parse(raw); } catch (_) { process.exit(0); }
 
+// --- Write/Edit/NotebookEdit: block a resolved secret from being written INTO a file. ---
+// This is the original-incident class (a student pasted a real key into a tracked file) that the
+// Bash-only guard never covered. Matches only high-confidence secret SHAPES (real vendor key
+// formats), so placeholders, the word "password", and example connection URLs do not trip a block.
+const WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+if (WRITE_TOOLS.includes(input.tool_name)) {
+  const ti = input.tool_input || {};
+  const parts = [ti.content, ti.new_string, ti.new_source, ti.new_str];
+  if (Array.isArray(ti.edits)) for (const e of ti.edits) if (e && typeof e.new_string === 'string') parts.push(e.new_string);
+  const body = parts.filter(s => typeof s === 'string').join('\n');
+  if (!body) process.exit(0);
+  const SECRET_SHAPES = [
+    ['an Anthropic API key',      /\bsk-ant-[A-Za-z0-9_-]{24,}/],
+    ['an OpenAI-style key',       /\bsk-(?:proj-)?[A-Za-z0-9_-]{24,}/],
+    ['a private key block',       /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/],
+    ['an AWS access key id',      /\bAKIA[0-9A-Z]{16}\b/],
+    ['a GitHub token',            /\bgh[pousr]_[A-Za-z0-9]{36,}/],
+    ['a Slack token',             /\bxox[bpsar]-[A-Za-z0-9-]{10,}/],
+    ['a 1Password service token', /\bops_[A-Za-z0-9]{40,}/],
+    ['an Apify token',            /\bapify_api_[A-Za-z0-9]{20,}/],
+    ['a Firecrawl key',           /\bfc-[A-Za-z0-9]{20,}/],
+    ['a Google API key',          /\bAIza[0-9A-Za-z_-]{35}\b/],
+  ];
+  for (const [label, re] of SECRET_SHAPES) {
+    if (re.test(body))
+      deny(`This write contains what looks like ${label}. Don't hard-code secrets into files — reference them at runtime (op://…, an environment variable, or a .env.example placeholder). If it is a genuine false positive, write a placeholder value instead.`);
+  }
+  process.exit(0);
+}
+
 // Guard both shells. PowerShell is a distinct tool on Windows and would otherwise bypass.
 if (input.tool_name !== 'Bash' && input.tool_name !== 'PowerShell') process.exit(0);
 const isPS = input.tool_name === 'PowerShell';
-const c = (input.tool_input && input.tool_input.command) || '';
+let c = (input.tool_input && input.tool_input.command) || '';
 if (!c) process.exit(0);
 
 function words(segment) {
@@ -70,11 +101,19 @@ function isMaskedClause(clause) {
   return /\|\s*head\s+-c\s*4(?:\D|$)/i.test(clause);
 }
 
-// --- ALLOWLIST: runtime injection. Secrets go process->process, never to stdout. ---
-// But do not allow a runtime-injected process to be an env dump.
+// --- Runtime injection: op run / infisical run inject secrets into the child process. ---
+// The injection itself is safe (value goes process->process). But the WRAPPED command must
+// still be vetted, or `op run -- cat .env` / `op run -- printenv KEY` would dump the injected
+// secret. So: block a wrapped env/printenv dump outright, then STRIP the `<mgr> run [opts] --`
+// prefix and fall through, so every rule below inspects the wrapped command exactly as if it
+// had run without the wrapper. Closes the "op run is a skeleton key" bypass.
 if (/\b(infisical|op)\s+run\b[^\n;&|]*--\s+(?:['"]?\s*)?(?:env|printenv|run-printenv)\b/i.test(c))
   deny('Runtime injection wrapped around env/printenv still dumps injected secrets to stdout. Run the real command under the secrets manager instead.');
-if (/\b(infisical|op)\s+run\b/.test(c)) process.exit(0);
+{
+  const inj = c.match(/\b(?:infisical|op)\s+run\b[^\n]*?\s--\s+/);
+  if (inj) c = c.slice(inj.index + inj[0].length);              // vet the wrapped command below
+  else if (/\b(?:infisical|op)\s+run\b/.test(c)) process.exit(0); // `op run` w/ no `-- <cmd>` prints nothing
+}
 
 // Remove safe example/sample env files so they don't trip the .env file rule below.
 const scrub = c.replace(/\.env\.(example|sample|template)\b/gi, ' ');
@@ -96,10 +135,24 @@ if (/\bbw\s+export\b/.test(c))                       deny('bw export prints your
 if (/\bbw\s+list\s+items\b/.test(c))                 deny('bw list items prints item contents including passwords. Use `bw get <id>` for a single field.');
 if (/\bop\s+item\s+get\b[^|]*--reveal/.test(c))      deny('op item get --reveal prints field values. Inject the field instead — `op run -- <cmd>` or command substitution `"$(op read op://...)"` — so the value reaches the program, not stdout.');
 if (/--plain\b/.test(c))                             deny('--plain forces raw secret values to stdout.');
-for (const clause of clauses) {
-  if (/(?:^|\|\s*)op\s+read\b/i.test(clause) && !isMaskedClause(clause))
-    deny('op read on its own prints a secret to stdout. Inject it instead — `op run -- <cmd>` or command substitution `"$(op read op://...)"` — or, to just confirm it loaded, print a masked first4 fingerprint with `... | head -c 4`.');
+// `op read` as a LIVE command prints a secret. Detect it on a quote-stripped copy so an `op read`
+// that only appears INSIDE a quoted string (e.g. a grep pattern like "a|op read|b") is not a false
+// positive — a quoted string can never be the command that runs.
+const cUnquoted = c.replace(/"[^"]*"|'[^']*'/g, ' ');
+for (const clause of cUnquoted.split(/\|\||&&|[;&\n]/).map(s => s.trim()).filter(Boolean)) {
+  const masked = isMaskedClause(clause);
+  for (const seg of clause.split('|').map(s => s.trim()).filter(Boolean)) {
+    if (/^op\s+read\b/i.test(seg) && !masked)
+      deny('op read on its own prints a secret to stdout. Inject it instead — `op run -- <cmd>` or command substitution `"$(op read op://...)"` — or, to just confirm it loaded, print a masked first4 fingerprint with `... | head -c 4`.');
+  }
 }
+
+// `op read` inside a command substitution that is then PRINTED — `echo "$(op read op://…)"`.
+// The quote-strip above deliberately ignores $(...) so that feeding a PROGRAM stays allowed
+// (`<tool> "$(op read …)"`); piping it into a print command is the leak. Masked fingerprint OK.
+if (!isMaskedClause(c) &&
+    /\b(?:echo|printf|print|cat|tee|write-host|write-output|gc)\b[^\n]*(?:\$\(|`)\s*op\s+read\b/i.test(c))
+  deny('Printing $(op read …) sends the secret to stdout. Feed it straight to the program (`<tool> "$(op read op://...)"`) instead of echoing it, or verify it loaded with a masked fingerprint `op read … | head -c 4`.');
 
 // 2a. Whole-environment dumps — BASH. Check each command segment for a bare dump form.
 if (!isPS) {
@@ -134,9 +187,10 @@ if (!isPS) {
         deny(`${cmd} would print a secret-looking variable. Verify by using the key, or print only a masked first4 fingerprint with \`... | head -c 4\`.`);
     }
   }
-  // env / printenv piped into a filter still routes secret values through stdout.
-  if (/\b(env|printenv)\b[^|]*\|\s*(grep|rg|ag|awk|sed|cut|sort|head|tail)\b/.test(c))
-    deny('Piping env into a filter still routes secret values through stdout.');
+  // (No catch-all "env ... | filter" regex here: a bare env/printenv piped into a filter is already
+  //  denied above — the `segments` split includes `|`, so `env | grep X` trips the bare-dump rule at
+  //  line ~107. The old regex matched the literal word "env" inside a quoted arg — e.g.
+  //  `grep 'env' f | head` — which was a false positive with no added coverage.)
 }
 
 // 2b. Whole-environment dumps — POWERSHELL. The Env: drive holds injected secrets

@@ -14,9 +14,14 @@ import { dirname, join } from 'node:path';
 const HOOK = join(dirname(fileURLToPath(import.meta.url)), 'secrets-guard.js');
 
 // decision('Bash'|'PowerShell', command) -> 'allow' | 'deny'
-function decision(tool, command) {
+const WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+function decision(tool, arg) {
+  // Bash/PowerShell take a command string; Write/Edit take a tool_input (string -> {content}).
+  const tool_input = WRITE_TOOLS.includes(tool)
+    ? (typeof arg === 'string' ? { content: arg } : arg)
+    : { command: arg };
   const r = spawnSync('node', [HOOK], {
-    input: JSON.stringify({ tool_name: tool, tool_input: { command } }),
+    input: JSON.stringify({ tool_name: tool, tool_input }),
     encoding: 'utf8',
   });
   if (r.status !== 0) throw new Error(`hook crashed: ${r.stderr}`);
@@ -47,6 +52,12 @@ const CASES = [
   ['Bash', 'git status', 'allow'],
   ['Bash', 'op whoami', 'allow'],
   ['Bash', 'op item list --vault "Agent Vault"', 'allow'],
+  // `op read` INSIDE a quoted string (grep pattern, docs) is not a live command — must NOT block
+  ['Bash', 'grep -n "op read" notes.md', 'allow'],
+  ['Bash', 'grep -niE "1password|op read|op://" file.md', 'allow'],
+  ['Bash', 'rg "how to op read from the vault" docs/', 'allow'],
+  // the word "env" inside a quoted arg, piped to a filter — the old line-138 false positive
+  ['Bash', `grep 'env' config.txt | head`, 'allow'],
   ['PowerShell', 'git status', 'allow'],
   ['PowerShell', '$env:PATH', 'allow'],
   ['PowerShell', 'Write-Host "build complete"', 'allow'],
@@ -84,6 +95,28 @@ const CASES = [
   ['Bash', 'echo $DB_PASSWORD', 'deny'],
   ['Bash', 'printf $MY_CREDENTIAL', 'deny'],
   ['PowerShell', 'Write-Host $env:DB_PASSWORD', 'deny'],
+
+  // --- Write/Edit: block a real-looking secret written into a file. Fake keys are built by
+  //     concat so no contiguous key literal sits in this test file (would trip gitleaks). ---
+  ['Write', 'const port = 3000;\nexport const NAME = "app";', 'allow'],
+  ['Write', 'Set your ANTHROPIC_API_KEY in .env before running (never commit it).', 'allow'],
+  ['Write', 'DB_URL=postgres://user:password@localhost:5432/dev  # placeholder', 'allow'],
+  ['Write', 'KEY=' + 'sk-ant-' + 'api03-' + 'A1b2C3d4E5'.repeat(6), 'deny'],
+  ['Write', '-----BEGIN ' + 'OPENSSH PRIVATE KEY-----', 'deny'],
+  ['Edit', { new_string: 'AWS=' + 'AKIA' + 'ABCDEFGH12345678' }, 'deny'],
+  ['Edit', { new_string: 'a clean replacement line' }, 'allow'],
+  ['NotebookEdit', { new_source: 'print("hello world")' }, 'allow'],
+
+  // --- op run / infisical run now RE-VET the wrapped command (not a blanket allow) ---
+  ['Bash', 'op run -- cat config.json', 'allow'],           // wrapped non-secret read is fine
+  ['Bash', `mytool --token "$(op read 'op://Agent Vault/x/credential')"`, 'allow'], // program injection stays allowed
+  ['Bash', 'op run -- cat .env', 'deny'],                   // wrapped .env read now caught
+  ['Bash', 'infisical run -- cat .env', 'deny'],
+
+  // --- printed command-substitution of a vault read (Fable audit finding 2b) ---
+  ['Bash', `echo "$(op read 'op://Agent Vault/Anthropic API Key/credential')"`, 'deny'],
+  ['Bash', 'echo $(op read op://vault/item/field)', 'deny'],
+  ['Bash', 'echo "$(op read op://vault/item/field | head -c 4)"', 'allow'], // masked verify stays allowed
 ];
 
 let pass = 0;
