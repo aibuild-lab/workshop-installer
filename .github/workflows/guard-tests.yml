@@ -1,0 +1,29 @@
+name: guard-tests
+
+# Runs the secrets-guard behavioral tests automatically on every pull request (and on pushes to
+# main). This is the "second green check": Vercel confirms the site deploys; this confirms the
+# guard still blocks the leaks. A red X here means a change reopened a bypass -- do not merge.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    # Run on all three OSes students use, so a Windows- or macOS-only path bug can't slip through.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: guard bypass/regression suite
+        run: node hooks/secrets-guard.test.mjs
+      - name: tripwire redaction suite
+        run: node hooks/secrets-tripwire.test.mjs
+      - name: installer isolation suite
+        run: node hooks/install.test.mjs

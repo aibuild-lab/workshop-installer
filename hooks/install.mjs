@@ -66,41 +66,58 @@ settings.hooks ??= {};
 // guaranteed to exist. Forward slashes work for node on Windows too; quoting handles spaces.
 const nodeBin = process.execPath.split(path.sep).join('/');
 
+// Converge THIS hook to a dedicated matcher group and never touch anything else.
+// The old version mutated `group.matcher` on whatever group our hook happened to sit in, so
+// repairing our matcher could silently widen or narrow a co-located SIBLING hook (PR #14 review,
+// 8Dvibes P2). Instead: remove only our own hook entries wherever they live (leaving sibling
+// hooks and their groups' matchers byte-for-byte intact), drop any group we thereby emptied, and
+// add one dedicated group that holds only this hook with its own matcher. Idempotent: once the
+// canonical shape exists, a re-run is a no-op.
 function ensureHook(event, script, matcher) {
   settings.hooks[event] ??= [];
   const hookPath = path.join(hooksDir, script).split(path.sep).join('/');
   const command = `"${nodeBin}" "${hookPath}"`;
-  // Repair any existing entry that runs this script (for example an older bare-`node` command
-  // from a previous install) so re-running heals already-affected machines instead of skipping
-  // them. The bare-`node` bug shipped silently, so a no-op re-run would leave students exposed.
-  for (const group of settings.hooks[event]) {
-    if (!group || !Array.isArray(group.hooks)) continue;
-    for (const h of group.hooks) {
-      if (h && typeof h.command === 'string' && h.command.includes(script)) {
-        // Self-heal the matcher too: an older install wired a narrower matcher
-        // (Bash|PowerShell) that never routes Write/Edit events to the content guard.
-        const matcherStale = group.matcher !== matcher;
-        if (matcherStale) group.matcher = matcher;
-        if (h.command === command) return matcherStale ? 'repaired (matcher)' : 'already correct';
-        h.command = command;
-        return 'repaired';
-      }
-    }
+  const isOurs = (h) => h && typeof h.command === 'string' && h.command.includes(script);
+  const groups = settings.hooks[event];
+
+  // Already canonical? Exactly one copy of our hook, alone in its own group, right command+matcher.
+  const totalCopies = groups.reduce(
+    (n, g) => n + (g && Array.isArray(g.hooks) ? g.hooks.filter(isOurs).length : 0), 0);
+  const ourGroups = groups.filter(g => g && Array.isArray(g.hooks) && g.hooks.some(isOurs));
+  if (totalCopies === 1 && ourGroups.length === 1) {
+    const g = ourGroups[0];
+    if (g.hooks.length === 1 && g.matcher === matcher && g.hooks[0].command === command)
+      return 'already correct';
   }
-  settings.hooks[event].push({
-    matcher,
-    hooks: [{ type: 'command', command }],
-  });
-  return 'added';
+
+  // Remove ONLY our hook entries; never rewrite a sibling's command or a foreign group's matcher.
+  let sharedAGroup = false;
+  for (const g of groups) {
+    if (!g || !Array.isArray(g.hooks)) continue;
+    const before = g.hooks.length;
+    g.hooks = g.hooks.filter(h => !isOurs(h));
+    if (g.hooks.length < before && g.hooks.length > 0) sharedAGroup = true; // our hook had group-mates
+  }
+  // Drop groups that existed only to hold our hook (now empty); leave everything else in place.
+  settings.hooks[event] = groups.filter(g => !g || !Array.isArray(g.hooks) || g.hooks.length > 0);
+  settings.hooks[event].push({ matcher, hooks: [{ type: 'command', command }] });
+
+  if (totalCopies === 0) return 'added';
+  return sharedAGroup ? 'repaired (isolated to its own group)' : 'repaired';
 }
 const preStatus = ensureHook('PreToolUse', 'secrets-guard.js', 'Bash|PowerShell|Write|Edit|MultiEdit|NotebookEdit');
+// Tripwire runs on BOTH success and failure. On PostToolUse (success) it can rewrite the output
+// to redact secrets; on PostToolUseFailure it can only warn (the tool already ran). Registering
+// the failure event is harmless on older Claude Code builds that don't emit it.
 const postStatus = ensureHook('PostToolUse', 'secrets-tripwire.js', 'Bash|PowerShell');
+const postFailStatus = ensureHook('PostToolUseFailure', 'secrets-tripwire.js', 'Bash|PowerShell');
 
 fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
 
 console.log('Secrets guard installed.');
-console.log(`  PreToolUse  (secrets-guard.js):   ${preStatus}`);
-console.log(`  PostToolUse (secrets-tripwire.js): ${postStatus}`);
+console.log(`  PreToolUse        (secrets-guard.js):   ${preStatus}`);
+console.log(`  PostToolUse       (secrets-tripwire.js): ${postStatus}`);
+console.log(`  PostToolUseFailure(secrets-tripwire.js): ${postFailStatus}`);
 console.log(`  Hook runtime: ${nodeBin}`);
 console.log(`  Read deny rules: ${settings.permissions.deny.length}`);
 console.log('Restart Claude Code (or start a new session) for the hooks to take effect.');
