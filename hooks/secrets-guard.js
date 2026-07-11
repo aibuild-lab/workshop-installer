@@ -1,17 +1,38 @@
 #!/usr/bin/env node
+// op-tripwire: detector-rule
 // ~/.claude/hooks/secrets-guard.js
 // PreToolUse hook. Blocks the "dump a secret to stdout" class before it runs.
-// Cross-platform: runs on Node (a Claude Code dependency) — Mac, Mac Mini, Windows.
+// Cross-platform: runs on Node (a Claude Code dependency) - Mac, Mac Mini, Windows.
 // Covers BOTH the Bash tool and the PowerShell tool (Windows uses both). Bash rules
 // include the repo-level block-secret-print parity checks; PowerShell rules are additive
 // (Env: drive dumps + Write-Host/Write-Output/echo of a secret-looking $env: var).
 // Secret-name match spans KEY/TOKEN/SECRET/PASSWORD/CREDENTIAL forms on both shells.
 // Vault-agnostic: covers 1Password (op), Infisical, Bitwarden (bw), and the
 // universal leaks (env / cat .env / language-eval) that no vault choice prevents.
-// Allows runtime injection (op run / infisical run) unless the wrapped command is
-// itself an env dump. Blocks raw op reads; masked first4 checks remain allowed.
+// Allows runtime injection (op run / infisical run) but re-vets the WRAPPED command, so
+// `op run -- cat .env` can't dump. Blocks raw op reads AND printed `$(op read …)` command
+// substitution; feeding a program `"$(op read …)"` and masked first4 checks stay allowed.
 
 const fs = require('fs');
+
+const SECRET_SHAPES = [
+  ['an Anthropic API key',      /\bsk-ant-[A-Za-z0-9_-]{24,}/],
+  ['a Langfuse secret key',     /\bsk-lf-[A-Za-z0-9_-]{12,}/],
+  ['an OpenAI-style key',       /\bsk-(?!ant-|lf-)(?:proj-)?[A-Za-z0-9_-]{20,}/],
+  ['a private key block',       /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/],
+  ['an AWS access key id',      /\bAKIA[0-9A-Z]{16}\b/],
+  ['a GitHub token',            /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})/],
+  ['a Slack token',             /\b(?:xox[bpsar]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,})/],
+  ['a Supabase secret',         /\bsb_secret_[A-Za-z0-9_-]{12,}/],
+  ['a 1Password service token', /\bops_[A-Za-z0-9]{40,}/],
+  ['an Apify token',            /\bapify_api_[A-Za-z0-9]{20,}/],
+  ['a Firecrawl key',           /\bfc-[A-Za-z0-9]{20,}/],
+  ['a Google API key',          /\bAIza[0-9A-Za-z_-]{35}\b/],
+];
+
+function findSecretShape(text) {
+  return SECRET_SHAPES.find(([, re]) => re.test(text));
+}
 
 function deny(reason) {
   process.stdout.write(JSON.stringify({
@@ -29,6 +50,23 @@ try { raw = fs.readFileSync(0, 'utf8'); } catch (_) { process.exit(0); }
 let input;
 try { input = JSON.parse(raw); } catch (_) { process.exit(0); }
 
+// --- Write/Edit/NotebookEdit: block a resolved secret from being written INTO a file. ---
+// This is the original-incident class (a student pasted a real key into a tracked file) that the
+// Bash-only guard never covered. Matches only high-confidence secret SHAPES (real vendor key
+// formats), so placeholders, the word "password", and example connection URLs do not trip a block.
+const WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
+if (WRITE_TOOLS.includes(input.tool_name)) {
+  const ti = input.tool_input || {};
+  const parts = [ti.content, ti.new_string, ti.new_source, ti.new_str];
+  if (Array.isArray(ti.edits)) for (const e of ti.edits) if (e && typeof e.new_string === 'string') parts.push(e.new_string);
+  const body = parts.filter(s => typeof s === 'string').join('\n');
+  if (!body) process.exit(0);
+  const shape = findSecretShape(body);
+  if (shape)
+    deny(`This write contains what looks like ${shape[0]}. Don't hard-code secrets into files - inject them from Infisical at runtime, reference an environment variable name, or write a .env.example placeholder. If it is a genuine false positive, write a placeholder value instead.`);
+  process.exit(0);
+}
+
 // Guard both shells. PowerShell is a distinct tool on Windows and would otherwise bypass.
 if (input.tool_name !== 'Bash' && input.tool_name !== 'PowerShell') process.exit(0);
 const isPS = input.tool_name === 'PowerShell';
@@ -36,12 +74,182 @@ const c = (input.tool_input && input.tool_input.command) || '';
 if (!c) process.exit(0);
 
 function words(segment) {
-  return (segment.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || [])
-    .map(w => w.replace(/^(['"])(.*)\1$/, '$2'));
+  const tokens = [];
+  let token = '';
+  let started = false;
+  let quote = '';
+  let escaped = false;
+
+  function push() {
+    if (started) tokens.push(token);
+    token = '';
+    started = false;
+  }
+
+  for (const ch of String(segment || '')) {
+    if (escaped) {
+      token += ch;
+      started = true;
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\' && quote !== "'") {
+      escaped = true;
+      started = true;
+      continue;
+    }
+    if (quote) {
+      if (ch === quote) quote = '';
+      else token += ch;
+      started = true;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      quote = ch;
+      started = true;
+      continue;
+    }
+    if (/\s/.test(ch)) {
+      push();
+      continue;
+    }
+    token += ch;
+    started = true;
+  }
+  if (escaped) token += '\\';
+  push();
+  return tokens;
 }
 
 function commandName(word) {
   return (word || '').split(/[\\/]/).pop().toLowerCase();
+}
+
+// Split shell syntax only at operators that are outside quotes. Besides avoiding false
+// positives for safe searches such as `grep "env|op read"`, this lets us inspect every
+// command before and after an injection wrapper without throwing either side away.
+function splitShell(command, splitPipes) {
+  const parts = [];
+  let start = 0;
+  let quote = '';
+  let escaped = false;
+
+  function push(end) {
+    const part = command.slice(start, end).trim();
+    if (part) parts.push(part);
+  }
+
+  for (let i = 0; i < command.length; i++) {
+    const ch = command[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\' && quote !== "'") { escaped = true; continue; }
+    if (quote) {
+      if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
+
+    const doublePipe = ch === '|' && command[i + 1] === '|';
+    const doubleAmp = ch === '&' && command[i + 1] === '&';
+    const redirectAmp = ch === '&' && i > 0 && command[i - 1] === '>';
+    const separator = ch === '\n' || ch === ';' || doublePipe || doubleAmp ||
+      (!redirectAmp && ch === '&') || (splitPipes && ch === '|');
+    if (!separator) continue;
+
+    push(i);
+    if (doublePipe || doubleAmp) i++;
+    start = i + 1;
+  }
+  push(command.length);
+  return parts;
+}
+
+// Return the utility payload of an env invocation. Options with operands must consume those
+// operands before we decide whether a real child exists; otherwise a safe form such as
+// `env -u INFISICAL_TOKEN /bin/true` looks like an attempt to print INFISICAL_TOKEN.
+function envPayload(tokens, depth = 0) {
+  if (!tokens.length || commandName(tokens[0]) !== 'env') return null;
+  if (depth > 4) return [];
+
+  const args = tokens.slice(1);
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg)) continue;
+    if (arg === '--') return envPayload(['env', ...args.slice(i + 1)], depth + 1) || [];
+
+    if (arg === '-S' || arg === '--split-string') {
+      if (i + 1 >= args.length) return [];
+      return envPayload(['env', ...words(args[i + 1]), ...args.slice(i + 2)], depth + 1) || [];
+    }
+    if (/^-S.+/.test(arg))
+      return envPayload(['env', ...words(arg.slice(2)), ...args.slice(i + 1)], depth + 1) || [];
+    if (arg.startsWith('--split-string='))
+      return envPayload(['env', ...words(arg.slice('--split-string='.length)), ...args.slice(i + 1)], depth + 1) || [];
+
+    if (['-u', '-C', '-P', '-a', '--unset', '--chdir', '--argv0'].includes(arg)) {
+      i++;
+      continue;
+    }
+    if (/^-(?:u|C|P|a).+/.test(arg) || /^--(?:unset|chdir|argv0)=/.test(arg)) continue;
+    if (arg.startsWith('-')) continue;
+    return args.slice(i);
+  }
+  return [];
+}
+
+function renderTokens(tokens) {
+  return tokens.map(token => /[\s;&|]/.test(token) ? JSON.stringify(token) : token).join(' ');
+}
+
+// Build a conservative inspection set without executing anything. Keep the original command,
+// then add runtime-injected children, env payloads, and shell -c bodies recursively. This closes
+// both the prefix-loss bypass and nested-shell/path-qualified variants while preserving quoted
+// grep patterns as inert arguments.
+function collectInspectionCommands(root) {
+  const commands = [];
+  const seen = new Set();
+
+  function remember(command) {
+    const value = String(command || '').trim();
+    if (value && !seen.has(value)) {
+      seen.add(value);
+      commands.push(value);
+    }
+  }
+
+  function inspectTokens(tokens, depth, includeCommand = true) {
+    if (!tokens.length || depth > 8) return;
+    if (includeCommand) remember(renderTokens(tokens));
+
+    for (let i = 0; i + 1 < tokens.length; i++) {
+      if (!['infisical', 'op'].includes(commandName(tokens[i])) || tokens[i + 1].toLowerCase() !== 'run') continue;
+      const delimiter = tokens.indexOf('--', i + 2);
+      if (delimiter >= 0 && delimiter + 1 < tokens.length)
+        inspectTokens(tokens.slice(delimiter + 1), depth + 1, true);
+    }
+
+    const payload = envPayload(tokens);
+    const effective = payload === null ? tokens : payload;
+    if (payload && payload.length) inspectTokens(payload, depth + 1, true);
+    if (!effective.length) return;
+
+    const executable = commandName(effective[0]);
+    if (['sh', 'bash', 'zsh', 'dash', 'ksh', 'fish'].includes(executable)) {
+      const commandIndex = effective.findIndex((arg, index) => index > 0 &&
+        (arg === '-c' || /^-[A-Za-z]*c[A-Za-z]*$/.test(arg)));
+      if (commandIndex >= 0 && commandIndex + 1 < effective.length)
+        inspectCommand(effective[commandIndex + 1], depth + 1);
+    }
+  }
+
+  function inspectCommand(command, depth) {
+    if (depth > 8) return;
+    remember(command);
+    for (const segment of splitShell(command, true)) inspectTokens(words(segment), depth + 1, false);
+  }
+
+  inspectCommand(root, 0);
+  return commands;
 }
 
 function isSecretVar(name) {
@@ -70,62 +278,73 @@ function isMaskedClause(clause) {
   return /\|\s*head\s+-c\s*4(?:\D|$)/i.test(clause);
 }
 
-// --- ALLOWLIST: runtime injection. Secrets go process->process, never to stdout. ---
-// But do not allow a runtime-injected process to be an env dump.
-if (/\b(infisical|op)\s+run\b[^\n;&|]*--\s+(?:['"]?\s*)?(?:env|printenv|run-printenv)\b/i.test(c))
-  deny('Runtime injection wrapped around env/printenv still dumps injected secrets to stdout. Run the real command under the secrets manager instead.');
-if (/\b(infisical|op)\s+run\b/.test(c)) process.exit(0);
+// --- Runtime injection: op run / infisical run inject secrets into the child process. ---
+// The injection itself is safe (value goes process->process). But the WRAPPED command must
+// still be vetted, and commands before/after the wrapper must never disappear from inspection.
+// collectInspectionCommands keeps the full command and recursively adds only executable payloads.
+const literalShape = findSecretShape(c);
+if (literalShape)
+  deny(`This shell command contains what looks like ${literalShape[0]}. Do not place literal secrets in Bash or PowerShell commands; inject them at runtime.`);
 
-// Remove safe example/sample env files so they don't trip the .env file rule below.
-const scrub = c.replace(/\.env\.(example|sample|template)\b/gi, ' ');
-const clauses = c.split(/\|\||&&|[;&\n]/).map(s => s.trim()).filter(Boolean);
+const inspectionCommands = collectInspectionCommands(c);
+const inspection = inspectionCommands.join('\n');
+
+const clauses = inspectionCommands.flatMap(command => splitShell(command, false));
 // Split into simple-command segments so "env FOO=bar cmd" (setter) is distinguished
 // from a bare "env" (whole-environment dump).
-const segments = c.split(/\|\||&&|[;|&\n]/).map(s => s.trim()).filter(Boolean);
-// Readers differ by shell: in PowerShell, cat/type/gc are all Get-Content aliases.
-const READ    = isPS ? /\b(Get-Content|gc|type|cat|more|Select-String|sls)\b/i
-                     : /\b(cat|bat|less|more|head|tail|nl|xxd|od|strings)\b/;
-// Credentials-file rule: reader and the word "credentials" within the same segment.
-const CREDRD  = isPS ? /\b(Get-Content|gc|type|cat|more|Select-String|sls)\b[^|;&]*credentials\b/i
-                     : /\b(cat|bat|less|more|head|tail)\b[^|;&]*credentials\b/;
+const segments = inspectionCommands.flatMap(command => splitShell(command, true));
+// Readers differ by shell: in PowerShell, cat/type/gc are all Get-Content aliases. Match the
+// executable token, not words inside quoted grep patterns or an unrelated neighboring command.
+const READ_COMMANDS = new Set((isPS
+  ? ['get-content', 'gc', 'type', 'cat', 'more', 'select-string', 'sls']
+  : ['cat', 'bat', 'less', 'more', 'head', 'tail', 'nl', 'xxd', 'od', 'strings']));
 
-// 1. Secrets-manager bulk dumps (any vault, any shell — these are external CLIs)
-if (/\binfisical\s+secrets\b(?!\s+set\b)/.test(c)) deny('infisical secrets dumps vault values to stdout. Use `infisical run -- <cmd>` to inject at runtime.');
-if (/\binfisical\s+export\b/.test(c))               deny('infisical export prints all secrets. Use `infisical run -- <cmd>`.');
-if (/\bbw\s+export\b/.test(c))                       deny('bw export prints your whole Bitwarden vault. Read one item with `bw get` or inject at runtime.');
-if (/\bbw\s+list\s+items\b/.test(c))                 deny('bw list items prints item contents including passwords. Use `bw get <id>` for a single field.');
-if (/\bop\s+item\s+get\b[^|]*--reveal/.test(c))      deny('op item get --reveal prints field values. Inject the field instead — `op run -- <cmd>` or command substitution `"$(op read op://...)"` — so the value reaches the program, not stdout.');
-if (/--plain\b/.test(c))                             deny('--plain forces raw secret values to stdout.');
+// 1. Secrets-manager bulk dumps (any vault, any shell - these are external CLIs)
+if (/\binfisical\s+secrets\b(?!\s+set\b)/.test(inspection)) deny('infisical secrets dumps vault values to stdout. Use `infisical run -- <cmd>` to inject at runtime.');
+if (/\binfisical\s+export\b/.test(inspection))               deny('infisical export prints all secrets. Use `infisical run -- <cmd>`.');
+if (/\bbw\s+export\b/.test(inspection))                       deny('bw export prints your whole Bitwarden vault. Read one item with `bw get` or inject at runtime.');
+if (/\bbw\s+list\s+items\b/.test(inspection))                 deny('bw list items prints item contents including passwords. Use `bw get <id>` for a single field.');
+if (/\bop\s+item\s+get\b[^|]*--reveal/.test(inspection))      deny('op item get --reveal prints field values. Use Infisical runtime injection for non-human consumers; keep 1Password use interactive and human-only.');
+if (/\bsupabase\s+projects\s+api-keys\b[^|]*--reveal/i.test(inspection)) deny('supabase projects api-keys --reveal prints project secrets.');
+if (/--plain\b/.test(inspection))                             deny('--plain forces raw secret values to stdout.');
+// `op read` as a LIVE command prints a secret. Token inspection distinguishes an executable
+// (including a path-qualified one or a nested shell payload) from inert quoted grep text.
 for (const clause of clauses) {
-  if (/(?:^|\|\s*)op\s+read\b/i.test(clause) && !isMaskedClause(clause))
-    deny('op read on its own prints a secret to stdout. Inject it instead — `op run -- <cmd>` or command substitution `"$(op read op://...)"` — or, to just confirm it loaded, print a masked first4 fingerprint with `... | head -c 4`.');
+  const masked = isMaskedClause(clause);
+  for (const seg of splitShell(clause, true)) {
+    const tokens = words(seg);
+    if (commandName(tokens[0]) === 'op' && String(tokens[1] || '').toLowerCase() === 'read' && !masked)
+      deny('op read on its own prints a secret to stdout. Use Infisical runtime injection for non-human consumers; keep 1Password use interactive and human-only. To confirm an approved value loaded, print only a masked first4 fingerprint with `... | head -c 4`.');
+  }
 }
 
-// 2a. Whole-environment dumps — BASH. Check each command segment for a bare dump form.
+// `op read` inside a command substitution that is then PRINTED - `echo "$(op read op://…)"`.
+// The quote-strip above deliberately ignores $(...) so that feeding a PROGRAM stays allowed
+// (`<tool> "$(op read …)"`); piping it into a print command is the leak. Masked fingerprint OK.
+if (!isMaskedClause(inspection) &&
+    /\b(?:echo|printf|print|cat|tee|write-host|write-output|gc)\b[^\n]*(?:\$\(|`)\s*(?:[^\s"'`]+[\\/])?op\s+read\b/i.test(inspection))
+  deny('Printing $(op read …) sends the secret to stdout. Use Infisical runtime injection for non-human consumers; keep 1Password use interactive and human-only. For approved verification, print only a masked first4 fingerprint.');
+
+// 2a. Whole-environment dumps - BASH. Check each command segment for a bare dump form.
 if (!isPS) {
   for (const seg of segments) {
-    if (/^env(\s+-\S+)*\s*$/.test(seg))            deny('Bare env prints every variable, including injected secrets. Name one non-secret var, e.g. `printenv PATH`.');
-    if (/^printenv\s*$/.test(seg))                 deny('Bare printenv prints every variable. Name one var, e.g. `printenv PATH`.');
-    if (/^set\s*$/.test(seg))                      deny('Bare `set` dumps all shell variables.');
-    if (/^(declare|typeset)\s+-\w*p\w*\s*$/.test(seg)) deny('declare -p dumps all variables.');
-    if (/^export\s+-p\s*$/.test(seg))              deny('export -p dumps all exported variables.');
+    const tokens = words(seg);
+    const cmd = commandName(tokens[0]);
+    if (cmd === 'env' && envPayload(tokens)?.length === 0)
+      deny('env without a utility payload prints the environment, including injected secrets. Run a real command after its options and assignments.');
+    if (['printenv', 'run-printenv'].includes(cmd) && tokens.length === 1)
+      deny('Bare printenv prints every variable. Name one non-secret var, e.g. `printenv PATH`.');
+    if (cmd === 'set' && tokens.length === 1) deny('Bare `set` dumps all shell variables.');
+    if (['declare', 'typeset'].includes(cmd) && tokens.slice(1).some(arg => /^-\w*p\w*$/.test(arg)))
+      deny('declare -p dumps all variables.');
+    if (cmd === 'export' && tokens[1] === '-p') deny('export -p dumps all exported variables.');
   }
   for (const clause of clauses) {
     const masked = isMaskedClause(clause);
-    for (const seg of clause.split('|').map(s => s.trim()).filter(Boolean)) {
+    for (const seg of splitShell(clause, true)) {
       const w = words(seg);
       const cmd = commandName(w[0]);
       const args = w.slice(1);
-
-      if (cmd === 'env') {
-        const nonAssignments = args.filter(arg => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(arg) && !arg.startsWith('-'));
-        if (args.length && nonAssignments.length === 0)
-          deny('env with only assignments still prints the full environment. Run a real command after the assignments instead.');
-        if (nonAssignments[0] && ['env', 'printenv', 'run-printenv'].includes(commandName(nonAssignments[0])))
-          deny('env wrapped around env/printenv still prints environment values.');
-        if (nonAssignments.some(isSecretVar) && !masked)
-          deny('env references a secret-looking variable in a print-oriented command. Inject secrets into the child process without printing them.');
-      }
 
       if (['printenv', 'run-printenv'].includes(cmd) && args.some(isSecretVar) && !masked)
         deny(`${cmd} would print a secret-looking variable. Verify by using the key, or print only a masked first4 fingerprint with \`... | head -c 4\`.`);
@@ -134,17 +353,18 @@ if (!isPS) {
         deny(`${cmd} would print a secret-looking variable. Verify by using the key, or print only a masked first4 fingerprint with \`... | head -c 4\`.`);
     }
   }
-  // env / printenv piped into a filter still routes secret values through stdout.
-  if (/\b(env|printenv)\b[^|]*\|\s*(grep|rg|ag|awk|sed|cut|sort|head|tail)\b/.test(c))
-    deny('Piping env into a filter still routes secret values through stdout.');
+  // (No catch-all "env ... | filter" regex here: a bare env/printenv piped into a filter is already
+  //  denied above - the `segments` split includes `|`, so `env | grep X` trips the bare-dump rule at
+  //  line ~107. The old regex matched the literal word "env" inside a quoted arg - e.g.
+  //  `grep 'env' f | head` - which was a false positive with no added coverage.)
 }
 
-// 2b. Whole-environment dumps — POWERSHELL. The Env: drive holds injected secrets
+// 2b. Whole-environment dumps - POWERSHELL. The Env: drive holds injected secrets
 // (op run / infisical run populate it). `$env:NAME` single reads are deliberately allowed.
 if (isPS) {
-  if (/\b(Get-ChildItem|gci|ls|dir)\s+(-\w+\s+)*env:(\\)?\s*(\||;|&|$)/i.test(c))
+  if (/\b(Get-ChildItem|gci|ls|dir)\s+(-\w+\s+)*env:(\\)?\s*(\||;|&|$)/i.test(inspection))
     deny('Listing the Env: drive prints every environment variable, including injected secrets. Read one with $env:NAME.');
-  if (/\[Environment\]::GetEnvironmentVariables/i.test(c))
+  if (/\[Environment\]::GetEnvironmentVariables/i.test(inspection))
     deny('[Environment]::GetEnvironmentVariables() dumps all environment variables.');
   for (const seg of segments) {
     if (/^(Get-Variable|gv)\s*$/i.test(seg)) deny('Bare Get-Variable dumps all PowerShell variables, which may hold secrets. Name one: Get-Variable PATH.');
@@ -153,7 +373,7 @@ if (isPS) {
   // Mirrors the Bash echo/printf rule so Windows students get the same protection.
   for (const clause of clauses) {
     const masked = isMaskedClause(clause);
-    for (const seg of clause.split('|').map(s => s.trim()).filter(Boolean)) {
+    for (const seg of splitShell(clause, true)) {
       const cmd = commandName(words(seg)[0]);
       if (['echo', 'write-host', 'write-output'].includes(cmd) &&
           secretEnvRefs(seg).some(isSecretVar) && !masked)
@@ -163,15 +383,23 @@ if (isPS) {
 }
 
 // 3. Reading secret-bearing files
-if (READ.test(c) && /\.env\b/.test(scrub))         deny('Reading a .env file prints secrets to stdout. Inject via your secrets manager; do not print the file.');
-if (READ.test(c) && /(\.pem|id_rsa|id_ed25519|\.p12|\.pfx)\b/.test(c)) deny('Reading a key/cert file prints private material to stdout.');
-if (CREDRD.test(c)) deny('Reading a credentials file prints secrets to stdout.');
+for (const segment of segments) {
+  const tokens = words(segment);
+  if (!READ_COMMANDS.has(commandName(tokens[0]))) continue;
+  const args = tokens.slice(1).join(' ');
+  const safeArgs = args.replace(/\.env\.(example|sample|template)\b/gi, ' ');
+  if (/\.env\b/i.test(safeArgs))
+    deny('Reading a .env file prints secrets to stdout. Inject via your secrets manager; do not print the file.');
+  if (/(\.pem|id_rsa|id_ed25519|\.p12|\.pfx)\b/i.test(args))
+    deny('Reading a key/cert file prints private material to stdout.');
+  if (/credentials\b/i.test(args)) deny('Reading a credentials file prints secrets to stdout.');
+}
 
 // 4. Language-eval exfil of env / .env (shell-independent)
-if (/\b(python3?|node|ruby|perl|php)\b[^\n]*(\.env|os\.environ|process\.env|ENV\[)/.test(c))
+if (/\b(python3?|node|ruby|perl|php)\b[^\n]*(\.env|os\.environ|process\.env|ENV\[)/.test(inspection))
   deny('Reading env/.env via a language eval routes secrets to stdout.');
 
 // 5. docker compose config renders interpolated secrets
-if (/\bdocker\s+compose\s+config\b/.test(c)) deny('docker compose config renders interpolated secrets to stdout.');
+if (/\bdocker\s+compose\s+config\b/.test(inspection)) deny('docker compose config renders interpolated secrets to stdout.');
 
 process.exit(0);
