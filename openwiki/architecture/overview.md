@@ -120,6 +120,5 @@ This ensures the installer never overwrites a working Python setup while always 
 ├── tests/
 │   └── install.test.mjs                 # Installer unit tests
 └── .github/workflows/
-    ├── guard-tests.yml                   # Multi-OS CI for hooks
-    └── openwiki-update.yml               # Scheduled wiki refresh
+    └── guard-tests.yml                   # Multi-OS CI for hooks
 ```
