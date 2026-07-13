@@ -76,6 +76,12 @@ const CASES = [
   ['Bash', 'grep -niE "1password|op read|op://" file.md', 'allow'],
   ['Bash', 'rg "how to op read from the vault" docs/', 'allow'],
   ['Bash', 'grep -n "cat .env && op run" notes.md', 'allow'],
+  // Commit/PR message text is inert data, not an executable reader command. These pin the
+  // student-reported false positive without weakening executable siblings or literal-key scans.
+  ['Bash', 'git commit -m "fix cat parsing in .env loader"', 'allow'],
+  ['Bash', 'git commit --message="document cat .env behavior"', 'allow'],
+  ['Bash', 'gh pr create --title "fix cat parsing in .env loader" --body "mentions printenv and op read"', 'allow'],
+  ['Bash', 'echo "cat .env"', 'allow'],
   // the word "env" inside a quoted arg, piped to a filter - the old line-138 false positive
   ['Bash', `grep 'env' config.txt | head`, 'allow'],
   ['PowerShell', 'git status', 'allow'],
@@ -91,6 +97,10 @@ const CASES = [
   ['Bash', 'echo $ANTHROPIC_API_KEY', 'deny'],
   ['Bash', 'printenv OPENAI_API_KEY', 'deny'],
   ['Bash', 'cat .env', 'deny'],
+  ['Bash', 'git commit -m safe && cat .env', 'deny'],
+  ['Bash', 'cat .env && git commit -m safe', 'deny'],
+  ['Bash', 'git commit -m safe && bash <<EOF\ncat .env\nEOF', 'deny'],
+  ['Bash', `git commit -m "${FAKE_ANTHROPIC}"`, 'deny'],
 
   // --- runtime-injection-wrapped env dumps (the bypass #9 closes) ---
   ['Bash', 'infisical run -- printenv', 'deny'],
