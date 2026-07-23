@@ -201,6 +201,45 @@ const CASES = [
   // Shell-authored literal key: an inline vendor-shaped secret is blocked (built by concat so no
   // contiguous key literal sits in this test file and trips gitleaks).
   ['Bash', `curl -H "Authorization: Bearer ` + 'sk-ant-' + 'api03-' + 'Z9y8X7w6V5'.repeat(6) + `" https://api.example.com`, 'deny'],
+
+  // === Remote-exec / wrapper unwrapping (Douglas Rimer report: a real Postgres password printed
+  // through an ssh-wrapped command the guard never opened). The inner command must face the same
+  // rules as a local run - `ssh host "cat .env"` denies exactly like `bash -c 'cat .env'`. ===
+  ['Bash', 'ssh prod-db "cat .env"', 'deny'],
+  ['Bash', 'ssh -p 2222 deploy@prod-db "cat .env"', 'deny'],
+  ['Bash', 'ssh -tt prod-db "printenv DB_PASSWORD"', 'deny'],
+  ['Bash', `ssh prod-db "bash -c 'cat .env'"`, 'deny'],
+  ['Bash', 'docker exec web cat .env', 'deny'],
+  ['Bash', 'docker exec -u root web printenv API_KEY', 'deny'],
+  ['Bash', 'docker compose exec web cat .env', 'deny'],
+  ['Bash', 'docker compose -f docker-compose.yml exec web env', 'deny'],
+  ['Bash', 'kubectl exec web-pod -- cat .env', 'deny'],
+  ['Bash', 'kubectl exec -n prod -it web-pod -- env', 'deny'],
+  ['Bash', 'sudo cat .env', 'deny'],
+  ['Bash', 'sudo -u root printenv DB_PASSWORD', 'deny'],
+  ['Bash', 'sudo bash -c "cat .env"', 'deny'],
+  ['Bash', 'nohup cat .env', 'deny'],
+  ['Bash', 'timeout 5 cat .env', 'deny'],
+  ['Bash', 'timeout -s KILL 5 printenv API_KEY', 'deny'],
+  ['Bash', 'su -c "cat .env"', 'deny'],
+  ['Bash', 'su postgres -c "printenv DB_PASSWORD"', 'deny'],
+  ['Bash', 'find . -exec cat .env \\;', 'deny'],
+  // Benign wrapped commands stay allowed - unwrapping must not turn remote work into a deny.
+  ['Bash', 'ssh prod-db "ls"', 'allow'],
+  ['Bash', 'ssh -p 2222 deploy@prod-db "ls -la /app"', 'allow'],
+  ['Bash', 'ssh prod-db uptime', 'allow'],
+  ['Bash', 'docker exec web ls', 'allow'],
+  ['Bash', 'docker exec -it web bash', 'allow'],
+  ['Bash', 'docker compose exec web npm test', 'allow'],
+  ['Bash', 'kubectl exec web-pod -- ls /app', 'allow'],
+  ['Bash', 'sudo ls -la', 'allow'],
+  ['Bash', 'timeout 5 npm test', 'allow'],
+  ['Bash', 'nohup node server.js &', 'allow'],
+  ['Bash', 'su -c "ls"', 'allow'],
+  ['Bash', 'find . -name "*.log" -exec ls {} \\;', 'allow'],
+  // Wrapper syntax inside quoted text is inert data, not an executable command.
+  ['Bash', 'git commit -m "document ssh host cat .env behavior"', 'allow'],
+  ['Bash', 'grep -n "kubectl exec" notes.md', 'allow'],
 ];
 
 let pass = 0;
