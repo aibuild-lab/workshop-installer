@@ -12,6 +12,8 @@
 // Allows runtime injection (op run / infisical run) but re-vets the WRAPPED command, so
 // `op run -- cat .env` can't dump. Blocks raw op reads AND printed `$(op read …)` command
 // substitution; feeding a program `"$(op read …)"` and masked first4 checks stay allowed.
+// Remote-exec and wrapper forms (ssh, docker/kubectl exec, sudo, nohup, timeout, su -c,
+// find -exec) are likewise unwrapped so the inner command faces the same rules as a local run.
 
 const fs = require('fs');
 
@@ -201,10 +203,31 @@ function renderTokens(tokens) {
   return tokens.map(token => /[\s;&|]/.test(token) ? JSON.stringify(token) : token).join(' ');
 }
 
+// Options that take a SEPARATE operand token for each wrapper we unwrap. `--opt=value` and glued
+// short forms (`-p2222`) are single tokens and need no entry. Anything not listed is treated as a
+// flag, so an unknown operand option shifts parsing right by one token - a miss, never a false deny.
+const SSH_OPERAND_OPTIONS = ['-B', '-b', '-c', '-D', '-E', '-e', '-F', '-I', '-i', '-J', '-L', '-l', '-m', '-O', '-o', '-p', '-Q', '-R', '-S', '-W', '-w'];
+const DOCKER_EXEC_OPERAND_OPTIONS = ['-u', '--user', '-e', '--env', '-w', '--workdir', '--env-file', '--index'];
+const KUBECTL_OPERAND_OPTIONS = ['-c', '--container', '-n', '--namespace', '--context', '--kubeconfig', '--cluster', '--user', '--as', '--as-group', '--as-uid', '-s', '--server', '--token', '--certificate-authority', '--client-certificate', '--client-key', '--request-timeout', '--pod-running-timeout', '-f', '--filename', '-o', '--output'];
+const SUDO_OPERAND_OPTIONS = ['-u', '--user', '-g', '--group', '-h', '--host', '-p', '--prompt', '-C', '--close-from', '-D', '--chdir', '-R', '--chroot', '-T', '--command-timeout', '-U', '--other-user', '-r', '--role', '-t', '--type'];
+const TIMEOUT_OPERAND_OPTIONS = ['-s', '--signal', '-k', '--kill-after'];
+
+// Skip a wrapper's option tokens to reach its first positional argument. `--` ends option parsing.
+function skipOptionTokens(tokens, start, operandOptions) {
+  let i = start;
+  while (i < tokens.length) {
+    const arg = tokens[i];
+    if (arg === '--') return i + 1;
+    if (!arg.startsWith('-') || arg === '-') return i;
+    i += operandOptions.includes(arg) ? 2 : 1;
+  }
+  return i;
+}
+
 // Build a conservative inspection set without executing anything. Keep the original command,
-// then add runtime-injected children, env payloads, and shell -c bodies recursively. This closes
-// both the prefix-loss bypass and nested-shell/path-qualified variants while preserving quoted
-// grep patterns as inert arguments.
+// then add runtime-injected children, env payloads, shell -c bodies, and remote-exec/wrapper
+// payloads recursively. This closes both the prefix-loss bypass and nested-shell/path-qualified
+// variants while preserving quoted grep patterns as inert arguments.
 function collectInspectionCommands(root) {
   const commands = [];
   const seen = new Set();
@@ -239,6 +262,59 @@ function collectInspectionCommands(root) {
         (arg === '-c' || /^-[A-Za-z]*c[A-Za-z]*$/.test(arg)));
       if (commandIndex >= 0 && commandIndex + 1 < effective.length)
         inspectCommand(effective[commandIndex + 1], depth + 1);
+    }
+
+    // Remote-exec and wrapper forms must face the same rules as a local run, so unwrap each to
+    // its inner command and inspect that too: `ssh host "cat .env"` is the same leak as
+    // `bash -c 'cat .env'`, only routed through a remote shell. (Student report - Douglas Rimer:
+    // a real Postgres password printed through an ssh-wrapped command the guard never opened.)
+    if (executable === 'ssh') {
+      const hostIndex = skipOptionTokens(effective, 1, SSH_OPERAND_OPTIONS);
+      // ssh joins post-host arguments with spaces to build the remote command line.
+      if (hostIndex + 1 < effective.length)
+        inspectCommand(effective.slice(hostIndex + 1).join(' '), depth + 1);
+    }
+    if (['docker', 'kubectl'].includes(executable)) {
+      const execIndex = effective.findIndex((arg, index) => index > 0 && arg === 'exec');
+      if (execIndex >= 0) {
+        const operandOptions = executable === 'docker' ? DOCKER_EXEC_OPERAND_OPTIONS : KUBECTL_OPERAND_OPTIONS;
+        const targetIndex = skipOptionTokens(effective, execIndex + 1, operandOptions);
+        let childIndex = targetIndex + 1;
+        if (executable === 'kubectl' && effective[childIndex] === '--') childIndex++;
+        if (targetIndex < effective.length && childIndex < effective.length)
+          inspectTokens(effective.slice(childIndex), depth + 1, true);
+      }
+    }
+    if (['sudo', 'nohup'].includes(executable)) {
+      const operandOptions = executable === 'sudo' ? SUDO_OPERAND_OPTIONS : [];
+      let childIndex = skipOptionTokens(effective, 1, operandOptions);
+      while (childIndex < effective.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(effective[childIndex])) childIndex++;
+      if (childIndex < effective.length) inspectTokens(effective.slice(childIndex), depth + 1, true);
+    }
+    if (executable === 'timeout') {
+      const durationIndex = skipOptionTokens(effective, 1, TIMEOUT_OPERAND_OPTIONS);
+      if (durationIndex + 1 < effective.length)
+        inspectTokens(effective.slice(durationIndex + 1), depth + 1, true);
+    }
+    if (executable === 'su') {
+      for (let i = 1; i < effective.length; i++) {
+        if (effective[i] === '-c' || effective[i] === '--command') {
+          if (i + 1 < effective.length) inspectCommand(effective[i + 1], depth + 1);
+          break;
+        }
+        if (effective[i].startsWith('--command=')) {
+          inspectCommand(effective[i].slice('--command='.length), depth + 1);
+          break;
+        }
+      }
+    }
+    if (executable === 'find') {
+      for (let i = 1; i < effective.length; i++) {
+        if (effective[i] !== '-exec' && effective[i] !== '-execdir') continue;
+        let end = effective.findIndex((arg, index) => index > i && (arg === ';' || arg === '+'));
+        if (end < 0) end = effective.length;
+        if (end > i + 1) inspectTokens(effective.slice(i + 1, end), depth + 1, true);
+      }
     }
   }
 
