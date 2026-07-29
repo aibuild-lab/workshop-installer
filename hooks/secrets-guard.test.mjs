@@ -18,6 +18,9 @@ const FAKE_LANGFUSE = 'sk-lf-' + 'L'.repeat(20);
 const FAKE_GITHUB_PAT = 'github_pat_' + 'G'.repeat(24);
 const FAKE_SLACK_APP = 'xapp-' + 'S'.repeat(24);
 const FAKE_SUPABASE = 'sb_secret_' + 'U'.repeat(20);
+const FAKE_STRIPE_LIVE = 'sk_live_' + 'S'.repeat(20);
+const FAKE_STRIPE_RESTRICTED = 'rk_live_' + 'R'.repeat(20);
+const FAKE_STRIPE_TEST = 'sk_test_' + 'T'.repeat(20);
 
 // decision('Bash'|'PowerShell', command) -> 'allow' | 'deny'
 const WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'];
@@ -163,6 +166,16 @@ const CASES = [
   ['Write', 'GITHUB=' + FAKE_GITHUB_PAT, 'deny'],
   ['Write', 'SLACK=' + FAKE_SLACK_APP, 'deny'],
   ['Write', 'SUPABASE=' + FAKE_SUPABASE, 'deny'],
+  ['Write', 'STRIPE_SECRET_KEY=' + FAKE_STRIPE_LIVE, 'deny'],
+  ['Write', 'STRIPE=' + FAKE_STRIPE_RESTRICTED, 'deny'],
+  // sk_test_ is deliberately NOT matched. Stripe's own tutorials paste test keys constantly, so
+  // matching them would fire during ordinary coursework for no real exposure.
+  ['Write', 'STRIPE_SECRET_KEY=' + FAKE_STRIPE_TEST, 'allow'],
+  ['Write', 'STRIPE_SECRET_KEY=sk_live_your_key_here  # placeholder', 'allow'],
+  ['Bash', `echo ${FAKE_STRIPE_LIVE}`, 'deny'],
+  ['PowerShell', `Write-Output ${FAKE_STRIPE_LIVE}`, 'deny'],
+  ['Bash', `stripe listen --api-key ${FAKE_STRIPE_RESTRICTED}`, 'deny'],
+  ['Bash', `echo ${FAKE_STRIPE_TEST}`, 'allow'],
   ['Write', '-----BEGIN ' + 'OPENSSH PRIVATE KEY-----', 'deny'],
   ['Edit', { new_string: 'AWS=' + 'AKIA' + 'ABCDEFGH12345678' }, 'deny'],
   ['Edit', { new_string: 'a clean replacement line' }, 'allow'],
