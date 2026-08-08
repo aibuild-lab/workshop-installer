@@ -240,7 +240,127 @@ const CASES = [
   // Wrapper syntax inside quoted text is inert data, not an executable command.
   ['Bash', 'git commit -m "document ssh host cat .env behavior"', 'allow'],
   ['Bash', 'grep -n "kubectl exec" notes.md', 'allow'],
+
+  // === agent-native-os#94: the read path was guarded by a wrapper allowlist. =================
+  // Robin Bertus probed 37 read-path commands against secrets-guard-2026-07-28; 26 passed.
+  // Classes 1-2 are gaps in an enumeration; classes 3-5 cannot be closed by extending it at all,
+  // because nothing is executed and there is no inner command to unwrap.
+
+  // -- class 1: the wrapper allowlist keyed on the binary NAME, so a rename walked through --
+  ['Bash', 'docker-compose exec api env', 'deny'],
+  ['Bash', 'podman exec api printenv', 'deny'],
+  ['Bash', 'nerdctl exec api printenv', 'deny'],
+  ['Bash', 'lxc exec c1 -- printenv', 'deny'],
+  ['Bash', 'incus exec c1 -- printenv', 'deny'],
+  ['Bash', 'docker run --rm alpine env', 'deny'],
+  // -- class 2: every PaaS ships its own "run this over there" verb --
+  ['Bash', 'fly ssh console -C printenv', 'deny'],
+  ['Bash', 'flyctl ssh console -C printenv', 'deny'],
+  ['Bash', 'gcloud compute ssh vm-1 --command printenv', 'deny'],
+  ['Bash', 'az vm run-command invoke -g rg -n vm --scripts printenv', 'deny'],
+  ['Bash', 'heroku run printenv', 'deny'],
+  ['Bash', 'railway run printenv', 'deny'],
+  ['Bash', 'doctl compute ssh droplet --ssh-command printenv', 'deny'],
+  ['Bash', 'flatpak run --command=printenv org.x.App', 'deny'],
+  // -- class 3: introspection prints the environment without executing anything --
+  ['Bash', 'docker inspect api', 'deny'],
+  ['Bash', "docker inspect --format '{{.Config.Env}}' api", 'deny'],
+  ['Bash', 'podman inspect api', 'deny'],
+  ['Bash', 'kubectl describe pod api', 'deny'],
+  ['Bash', 'kubectl get pod api -o yaml', 'deny'],
+  ['Bash', 'systemctl show myunit', 'deny'],
+  ['Bash', 'systemctl show --property=Environment myunit', 'deny'],
+  // -- class 4: platform stores. `list` is names-only everywhere and stays allowed. --
+  ['Bash', 'vercel env pull', 'deny'],
+  ['Bash', 'heroku config:get DATABASE_URL', 'deny'],
+  ['Bash', 'gh secret list', 'allow'],
+  ['Bash', 'fly secrets list', 'allow'],
+  // -- class 5: the OS hands the environment over directly --
+  ['Bash', 'cat /proc/1/environ', 'deny'],
+  ['Bash', "tr '\\0' '\\n' < /proc/self/environ", 'deny'],
+  ['Bash', 'strings /proc/1/environ', 'deny'],
+  ['Bash', 'ssh api-host cat /proc/1/environ', 'deny'],
+  ['Bash', 'ps eww', 'deny'],
+  ['Bash', 'ps auxe', 'deny'],
+  // ...but WRITING about the path is not reading it. Caught in live use: a `gh pr merge --body`
+  // describing this very fix was blocked by an earlier draft that matched the path as raw text.
+  ['Bash', 'gh pr merge 19 --squash --body "adds a rule for /proc/<pid>/environ reads"', 'allow'],
+  ['Bash', 'git commit -m "document the /proc/1/environ class"', 'allow'],
+  ['Bash', 'grep -rn "/proc/self/environ" docs/', 'allow'],
+
+  // -- the reader allowlist: any printer outside the set read .env untouched --
+  ['Bash', 'grep . .env', 'deny'],
+  ['Bash', 'sed -n p .env', 'deny'],
+  ['Bash', 'awk 1 .env', 'deny'],
+  ['Bash', 'cut -d= -f2 .env', 'deny'],
+  ['Bash', 'sort .env', 'deny'],
+  ['Bash', 'dd if=.env', 'deny'],
+  ['Bash', 'tee < .env', 'deny'],
+  ['Bash', 'tr -d "" < .env', 'deny'],
+  ['Bash', 'while read l; do echo "$l"; done < .env', 'deny'],
+  // -- PowerShell: the fully-qualified type name and Get-Item reach the same drive --
+  ['PowerShell', '[System.Environment]::GetEnvironmentVariables()', 'deny'],
+  ['PowerShell', '(Get-Item Env:).Value', 'deny'],
+  ['PowerShell', 'Get-Item Env:* | Out-String', 'deny'],
+  ['PowerShell', 'Get-Item Env:PATH', 'allow'],
+
+  // === False-positive guards for the #94 fix. Each pins a real command from 9,489 collected
+  // === from this machine's actual history, where an earlier draft of the fix blocked it.
+  // `show`/`describe` unqualified cost 249 false blocks; they are runtime-qualified now.
+  ['Bash', 'git show HEAD', 'allow'],
+  ['Bash', 'git show HEAD~3:src/index.js', 'allow'],
+  ['Bash', 'git describe --tags --abbrev=0', 'allow'],
+  ['Bash', 'npm show react versions', 'allow'],
+  ['Bash', 'hermes kanban show t_8b01fe26', 'allow'],
+  ['Bash', 'npm run inspect', 'allow'],
+  ['Bash', 'npm run test -- --grep env', 'allow'],
+  ['Bash', 'bundle exec rspec spec/', 'allow'],
+  ['Bash', 'docker ps', 'allow'],
+  ['Bash', 'docker run --rm -it ubuntu bash', 'allow'],
+  ['Bash', 'kubectl get pods', 'allow'],
+  ['Bash', 'kubectl get svc -o wide', 'allow'],
+  ['Bash', 'ps aux', 'allow'],
+  ['Bash', 'ps -ef', 'allow'],
+  ['Bash', 'ps -eo pid,ppid,cmd', 'allow'],
+  // A verb sitting in prose is not a command: heredoc commit bodies must not trip the rule.
+  ['Bash', "git commit -F - <<'EOF'\ndocs: the proposal reframes describe-first authoring\nEOF", 'allow'],
+  // `systemctl show -p <prop>` is the remediation the deny message recommends.
+  ['Bash', 'systemctl --user show hermes-gateway.service -p Restart -p RestartSec', 'allow'],
+  ['Bash', 'systemctl --user show hermes-gateway.service -p Environment', 'deny'],
+  // Auditing a .env WITHOUT printing values - the names-only idiom, and its value-printing sibling.
+  ['Bash', `grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' ~/.hermes/.env`, 'allow'],
+  ['Bash', `grep -ohE "^LANGFUSE[A-Z_]*=" ~/.hermes/.env`, 'allow'],
+  ['Bash', 'grep -c "^EXA_API_KEY=" ~/.hermes/.env', 'allow'],
+  ['Bash', `grep -oE '^[A-Z_]+=[^ ]+' .env`, 'deny'],
+  // `sed -i` rewrites in place and prints nothing.
+  ['Bash', `sed -i 's/\\r$//' intake-get.sh intake.env`, 'allow'],
+  // A quoted search pattern is not a filename.
+  ['Bash', 'jq .env config.json', 'allow'],
+  ['Bash', 'jq -r ".scripts.build" package.json', 'allow'],
+  ['Bash', 'rg -n "cat .env" docs/', 'allow'],
+  ['Bash', "awk -F, '{print $2}' data.csv", 'allow'],
+  ['Bash', 'sort access.log | uniq -c | head', 'allow'],
 ];
+
+// A PreToolUse hook runs before every tool call, so an unexpected payload shape must exit
+// quietly instead of throwing - a crashing guard breaks the whole session, not just one command.
+const MALFORMED_PAYLOADS = [
+  '', 'not json', 'null', '[1,2,3]', '{}',
+  '{"tool_name":"Bash"}',
+  '{"tool_name":"Bash","tool_input":null}',
+  '{"tool_name":"Bash","tool_input":{"command":42}}',
+  '{"tool_name":"Bash","tool_input":{"command":{"a":1}}}',
+  '{"tool_name":"Bash","tool_input":{"command":["ls"]}}',
+  '{"tool_name":"Edit","tool_input":{"edits":"nope"}}',
+  '{"tool_name":"MultiEdit","tool_input":{"edits":[null,{"new_string":"x"}]}}',
+];
+const malformedFails = [];
+for (const payload of MALFORMED_PAYLOADS) {
+  const r = spawnSync('node', [HOOK], { input: payload, encoding: 'utf8' });
+  if (r.status !== 0 || (r.stderr || '').trim())
+    malformedFails.push(`${JSON.stringify(payload).slice(0, 50)} -> exit ${r.status} ${(r.stderr || '').split('\n')[0].slice(0, 80)}`);
+}
+for (const f of malformedFails) console.error(`FAIL [malformed] ${f}`);
 
 let pass = 0;
 const fails = [];
@@ -253,5 +373,5 @@ for (const [tool, command, expected] of CASES) {
 for (const f of fails) {
   console.error(`FAIL [${f.tool}] expected ${f.expected}, got ${f.got}:\n  ${f.command}`);
 }
-console.log(`${pass}/${CASES.length} passed`);
-process.exit(fails.length ? 1 : 0);
+console.log(`${pass}/${CASES.length} passed, ${MALFORMED_PAYLOADS.length - malformedFails.length}/${MALFORMED_PAYLOADS.length} malformed payloads handled without crashing`);
+process.exit(fails.length || malformedFails.length ? 1 : 0);

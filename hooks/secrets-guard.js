@@ -51,6 +51,9 @@ let raw = '';
 try { raw = fs.readFileSync(0, 'utf8'); } catch (_) { process.exit(0); }
 let input;
 try { input = JSON.parse(raw); } catch (_) { process.exit(0); }
+// A hook that throws runs before EVERY tool call, so an unexpected payload shape must exit
+// quietly rather than crash the session. `null` parses fine and is not an object.
+if (!input || typeof input !== 'object') process.exit(0);
 
 // --- Write/Edit/NotebookEdit: block a resolved secret from being written INTO a file. ---
 // This is the original-incident class (a student pasted a real key into a tracked file) that the
@@ -72,7 +75,9 @@ if (WRITE_TOOLS.includes(input.tool_name)) {
 // Guard both shells. PowerShell is a distinct tool on Windows and would otherwise bypass.
 if (input.tool_name !== 'Bash' && input.tool_name !== 'PowerShell') process.exit(0);
 const isPS = input.tool_name === 'PowerShell';
-const c = (input.tool_input && input.tool_input.command) || '';
+// Only a string is inspectable. A number/object/array command would throw in splitShell.
+const rawCommand = input.tool_input && input.tool_input.command;
+const c = typeof rawCommand === 'string' ? rawCommand : '';
 if (!c) process.exit(0);
 
 function words(segment) {
@@ -212,6 +217,22 @@ const KUBECTL_OPERAND_OPTIONS = ['-c', '--container', '-n', '--namespace', '--co
 const SUDO_OPERAND_OPTIONS = ['-u', '--user', '-g', '--group', '-h', '--host', '-p', '--prompt', '-C', '--close-from', '-D', '--chdir', '-R', '--chroot', '-T', '--command-timeout', '-U', '--other-user', '-r', '--role', '-t', '--type'];
 const TIMEOUT_OPERAND_OPTIONS = ['-s', '--signal', '-k', '--kill-after'];
 
+// Union of every wrapper's operand options, used when unwrapping an UNKNOWN front-end. An
+// unlisted operand option shifts parsing right by one token - a miss, never a false deny.
+const GENERIC_OPERAND_OPTIONS = [...new Set([
+  ...DOCKER_EXEC_OPERAND_OPTIONS, ...KUBECTL_OPERAND_OPTIONS, ...SUDO_OPERAND_OPTIONS,
+  '-v', '--volume', '--name', '--entrypoint', '--platform', '--network', '-p', '--publish',
+  '-a', '--app', '-r', '--remote', '-t', '--tag', '--project', '--zone', '--region', '--config',
+])];
+
+// Flags whose VALUE is a command to run somewhere else. Every hosting CLI spells "run this over
+// there" differently, but they all hand the command to a flag - so key on the flag shape rather
+// than on the vendor name. `-c` stays shell-only: too many tools use it for "count"/"config".
+const NESTED_COMMAND_FLAGS = new Set([
+  '-C', '--command', '--commands', '--ssh-command', '--remote-command',
+  '--scripts', '--script', '--exec', '--entrypoint', '--run', '--cmd',
+]);
+
 // Skip a wrapper's option tokens to reach its first positional argument. `--` ends option parsing.
 function skipOptionTokens(tokens, start, operandOptions) {
   let i = start;
@@ -316,6 +337,33 @@ function collectInspectionCommands(root) {
         if (end > i + 1) inspectTokens(effective.slice(i + 1, end), depth + 1, true);
       }
     }
+
+    // --- Fail closed on UNRECOGNISED front-ends. (agent-native-os#94, classes 1 and 2.) ---
+    // Enumerating wrappers by binary name is a race against every new container runtime and
+    // hosting CLI: `docker compose exec` was covered while `docker-compose exec` was not, and
+    // podman / nerdctl / lxc / incus / fly / gcloud / az / heroku / railway / doctl all shipped
+    // their own spelling of the same operation. Key on the two SHAPES they share instead, so a
+    // runtime nobody has heard of yet is unwrapped on the day it ships.
+    for (let i = 1; i < effective.length; i++) {
+      const arg = effective[i];
+      const eq = arg.indexOf('=');
+      if (eq > 0 && NESTED_COMMAND_FLAGS.has(arg.slice(0, eq)))
+        inspectCommand(arg.slice(eq + 1), depth + 1);
+      else if (NESTED_COMMAND_FLAGS.has(arg) && i + 1 < effective.length)
+        inspectCommand(effective.slice(i + 1).join(' '), depth + 1);
+    }
+
+    const verbIndex = effective.findIndex((arg, index) => index > 0 && (arg === 'exec' || arg === 'run'));
+    if (verbIndex > 0) {
+      let target = skipOptionTokens(effective, verbIndex + 1, GENERIC_OPERAND_OPTIONS);
+      if (effective[target] === '--') target++;
+      // `<tool> run <cmd>` - heroku/railway style, command sits at the first positional.
+      if (target < effective.length) inspectTokens(effective.slice(target), depth + 1, true);
+      // `<tool> exec <container> <cmd>` / `<tool> run <image> <cmd>` - command follows the target.
+      let child = target + 1;
+      if (effective[child] === '--') child++;
+      if (child < effective.length) inspectTokens(effective.slice(child), depth + 1, true);
+    }
   }
 
   function inspectCommand(command, depth) {
@@ -326,6 +374,21 @@ function collectInspectionCommands(root) {
 
   inspectCommand(root, 0);
   return commands;
+}
+
+const SHELL_KEYWORDS = new Set(['do', 'done', 'then', 'else', 'elif', 'fi', 'esac', 'case', 'if',
+  'while', 'for', 'until', 'function', 'in', 'select', 'time', 'return', 'exit', 'local', 'declare']);
+
+// Resolve the binary a segment actually invokes, or null when the leading token is not a clean
+// command name: a heredoc body line, a shell keyword, a `VAR=$(...)` assignment, a bare `{`.
+// The verb rules below are subcommand-shaped and would otherwise fire on prose and on fragments
+// the tokenizer could not resolve - measured at 253 false positives before this gate existed.
+function resolveBinary(tokens) {
+  let i = 0;
+  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i]) && !tokens[i].includes('$(')) i++;
+  const name = commandName(tokens[i]);
+  if (!name || !/^[A-Za-z0-9_][A-Za-z0-9_.+-]*$/.test(name)) return null;
+  return SHELL_KEYWORDS.has(name) ? null : name;
 }
 
 function isSecretVar(name) {
@@ -371,9 +434,59 @@ const clauses = inspectionCommands.flatMap(command => splitShell(command, false)
 const segments = inspectionCommands.flatMap(command => splitShell(command, true));
 // Readers differ by shell: in PowerShell, cat/type/gc are all Get-Content aliases. Match the
 // executable token, not words inside quoted grep patterns or an unrelated neighboring command.
+// Whole-file printers: every non-option token is a filename. The Bash list is POSIX text
+// utilities - a set that has not gained a member in decades, unlike the vendor-CLI lists.
 const READ_COMMANDS = new Set((isPS
   ? ['get-content', 'gc', 'type', 'cat', 'more', 'select-string', 'sls']
-  : ['cat', 'bat', 'less', 'more', 'head', 'tail', 'nl', 'xxd', 'od', 'strings']));
+  : ['cat', 'bat', 'less', 'more', 'head', 'tail', 'nl', 'xxd', 'od', 'strings', 'tac',
+     'sort', 'uniq', 'tee', 'rev', 'fold', 'paste', 'join', 'column', 'expand', 'unexpand',
+     'pr', 'base64', 'base32', 'hexdump', 'cut', 'shuf', 'split', 'csplit', 'dd', 'cmp']));
+// Pattern-taking readers: the first positional is a search pattern or filter EXPRESSION, not a
+// file. Skipping it keeps `grep -n "cat .env" notes.md` and `jq .env config.json` allowed while
+// `grep . .env` is caught. PowerShell uses named parameters, so this does not apply there.
+const PATTERN_READ_COMMANDS = new Set(isPS ? []
+  : ['grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'sed', 'awk', 'gawk', 'mawk', 'nawk', 'jq', 'yq']);
+
+const SECRET_PATH_RULES = [
+  [/\.env\b/i, true,
+    'Reading a .env file prints secrets to stdout. Inject via your secrets manager; do not print the file.'],
+  [/(\.pem|id_rsa|id_ed25519|id_ecdsa|\.p12|\.pfx|\.jks|\.keystore)\b/i, false,
+    'Reading a key/cert file prints private material to stdout.'],
+  [/credentials\b/i, false, 'Reading a credentials file prints secrets to stdout.'],
+  // The OS hands the process environment over as a file, so it belongs with the other secret
+  // paths rather than as a standalone text match. Routing it through the reader rule means it
+  // fires when something READS it and not when a commit message or PR body mentions the path.
+  [/\/proc\/[^/\s]+\/environ\b/, false,
+    'That path is the raw process environment. Take the one value you need from your secrets manager instead.'],
+];
+
+const GREP_FAMILY = new Set(['grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack']);
+
+// A read whose OUTPUT cannot contain a value is not a leak. `grep -c` prints a count;
+// `grep -oE '^LANGFUSE_[A-Z_]+'` prints variable NAMES. This mirrors the masked-fingerprint
+// allowance already in the guard (`... | head -c 4`): confirming a key is PRESENT is fine,
+// printing its value is not. Measured against real history this is how a .env gets audited
+// without being read, and blocking it would push people back toward `cat`.
+// Names-only requires: -o with an anchored pattern that has no `.` wildcard and either no `=`
+// at all or nothing after it, so `grep -o '^[A-Z_]+=[^ ]+' .env` is still denied.
+function isNamesOnlyRead(cmd, tokens) {
+  if (!GREP_FAMILY.has(cmd)) return false;
+  const shortFlags = tokens.filter(token => /^-[A-Za-z]+$/.test(token));
+  const longFlags = tokens.filter(token => token.startsWith('--'));
+  if (shortFlags.some(flag => flag.includes('c')) || longFlags.includes('--count')) return true;
+  if (!shortFlags.some(flag => flag.includes('o')) && !longFlags.includes('--only-matching')) return false;
+  const pattern = tokens.slice(1).find(token => !token.startsWith('-'));
+  if (typeof pattern !== 'string' || !pattern.startsWith('^') || pattern.includes('.')) return false;
+  return !pattern.includes('=') || /=\$?$/.test(pattern);
+}
+
+function denyIfSecretPath(text) {
+  const raw = String(text || '');
+  if (!raw) return;
+  const safe = raw.replace(/\.env\.(example|sample|template|dist)\b/gi, ' ');
+  for (const [re, useSafe, message] of SECRET_PATH_RULES)
+    if (re.test(useSafe ? safe : raw)) deny(message);
+}
 
 // 1. Secrets-manager bulk dumps (any vault, any shell - these are external CLIs)
 if (/\binfisical\s+secrets\b(?!\s+set\b)/.test(inspection)) deny('infisical secrets dumps vault values to stdout. Use `infisical run -- <cmd>` to inject at runtime.');
@@ -438,9 +551,13 @@ if (!isPS) {
 // 2b. Whole-environment dumps - POWERSHELL. The Env: drive holds injected secrets
 // (op run / infisical run populate it). `$env:NAME` single reads are deliberately allowed.
 if (isPS) {
-  if (/\b(Get-ChildItem|gci|ls|dir)\s+(-\w+\s+)*env:(\\)?\s*(\||;|&|$)/i.test(inspection))
+  // Get-Item is a second way to reach the drive, `Env:*` a second way to spell "all of it", and
+  // `)` a terminator that `(Get-Item Env:).Value` relies on. A named read (`Get-Item Env:PATH`)
+  // has a variable name after the colon and stays allowed.
+  if (/\b(Get-ChildItem|gci|Get-Item|gi|ls|dir)\s+(-\w+\s+)*env:(\\|\*)?\s*(\||;|&|\)|$)/i.test(inspection))
     deny('Listing the Env: drive prints every environment variable, including injected secrets. Read one with $env:NAME.');
-  if (/\[Environment\]::GetEnvironmentVariables/i.test(inspection))
+  // [System.Environment] is the fully-qualified spelling of the same call and must match too.
+  if (/\[(?:System\.)?Environment\]::GetEnvironmentVariables/i.test(inspection))
     deny('[Environment]::GetEnvironmentVariables() dumps all environment variables.');
   for (const seg of segments) {
     if (/^(Get-Variable|gv)\s*$/i.test(seg)) deny('Bare Get-Variable dumps all PowerShell variables, which may hold secrets. Name one: Get-Variable PATH.');
@@ -461,14 +578,27 @@ if (isPS) {
 // 3. Reading secret-bearing files
 for (const segment of segments) {
   const tokens = words(segment);
-  if (!READ_COMMANDS.has(commandName(tokens[0]))) continue;
-  const args = tokens.slice(1).join(' ');
-  const safeArgs = args.replace(/\.env\.(example|sample|template)\b/gi, ' ');
-  if (/\.env\b/i.test(safeArgs))
-    deny('Reading a .env file prints secrets to stdout. Inject via your secrets manager; do not print the file.');
-  if (/(\.pem|id_rsa|id_ed25519|\.p12|\.pfx)\b/i.test(args))
-    deny('Reading a key/cert file prints private material to stdout.');
-  if (/credentials\b/i.test(args)) deny('Reading a credentials file prints secrets to stdout.');
+
+  // 3a. The shell's own redirect is reader-independent, so it catches the readers no list can
+  //     hold: `tee < .env`, `tr -d "" < .env`, `while read l; do echo "$l"; done < .env`.
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] === '<' && i + 1 < tokens.length) denyIfSecretPath(tokens[i + 1]);
+    else if (/^<[^<]/.test(tokens[i])) denyIfSecretPath(tokens[i].slice(1));
+  }
+
+  const cmd = commandName(tokens[0]);
+  const isPatternReader = PATTERN_READ_COMMANDS.has(cmd);
+  if (!READ_COMMANDS.has(cmd) && !isPatternReader) continue;
+  // `sed -i` rewrites the file in place and prints nothing, so it cannot leak what it edits
+  // (stripping CRLF from a .env is a real and harmless chore).
+  if (cmd === 'sed' && tokens.some(token => /^-i\S*$/.test(token) || token.startsWith('--in-place'))) continue;
+  let args = tokens.slice(1);
+  if (isPatternReader) {
+    if (isNamesOnlyRead(cmd, tokens)) continue;
+    const patternIndex = args.findIndex(arg => !arg.startsWith('-'));
+    args = patternIndex >= 0 ? args.slice(patternIndex + 1) : [];
+  }
+  denyIfSecretPath(args.join(' '));
 }
 
 // 4. Language-eval exfil of env / .env (shell-independent)
@@ -477,5 +607,94 @@ if (/\b(python3?|node|ruby|perl|php)\b[^\n]*(\.env|os\.environ|process\.env|ENV\
 
 // 5. docker compose config renders interpolated secrets
 if (/\bdocker\s+compose\s+config\b/.test(inspection)) deny('docker compose config renders interpolated secrets to stdout.');
+
+// === Destination rules (agent-native-os#94). ====================================================
+// Rules 1-5 above ask "does this command look like a way to print secrets?" - a question whose
+// answer is an ever-growing list of spellings. Rules 6-8 ask the other question: "would this
+// command's OUTPUT be the environment?" Nothing is executed in these forms, so there is no inner
+// command to unwrap however far the wrapper list is extended.
+
+// 6. Introspection renders a resource's configuration, and configuration includes the process
+//    environment. The durable signal is the VERB - plain English, stable across runtimes - not
+//    the vendor name. In the #94 report `docker inspect` on one API container printed 20 live
+//    variables including DATABASE_URL and ADMIN_TOKEN, from a command that reads as a status check.
+// `inspect` is specific enough to key on with no binary qualification: measured against 9,456
+// real commands, every firing was a genuine container/image inspect.
+const CONFIG_DUMP_VERBS = new Set(['inspect']);
+// `show` and `describe` are ordinary English and appear as subcommands everywhere - and, in a
+// heredoc commit body, as prose. Unqualified they cost 249 false blocks across the same history
+// (`git show`, `hermes kanban show`, `npm show`, `reframes describe ...` in a commit message).
+// Qualifying them fails toward a MISS rather than a false block, which is the correct direction
+// for a verb this generic; the wrapper classes above are the ones that must fail closed.
+const RUNTIME_INTROSPECTORS = new Set([
+  'systemctl', 'launchctl', 'docker', 'podman', 'nerdctl', 'kubectl', 'helm', 'crictl', 'oc',
+  'terraform', 'tofu', 'vault', 'nomad', 'consul', 'openstack', 'pm2', 'supervisorctl',
+  'gcloud', 'az', 'lxc', 'incus', 'minikube', 'k3s', 'fly', 'flyctl', 'heroku', 'railway', 'doctl',
+]);
+const QUALIFIED_DUMP_VERBS = new Set(['show', 'describe']);
+// `systemctl show -p Restart` selects named properties and cannot print Environment. The deny
+// message below tells people to do exactly this, so it has to stay allowed.
+function selectsNonEnvProperty(tokens) {
+  const properties = [];
+  for (let i = 0; i < tokens.length; i++) {
+    if ((tokens[i] === '-p' || tokens[i] === '--property') && i + 1 < tokens.length)
+      properties.push(tokens[i + 1]);
+    else if (tokens[i].startsWith('--property='))
+      properties.push(tokens[i].slice('--property='.length));
+  }
+  return properties.length > 0 && !properties.some(property => /environment/i.test(property));
+}
+
+for (const segment of segments) {
+  const tokens = words(segment);
+  const binary = resolveBinary(tokens);
+  if (!binary) continue;
+  if (selectsNonEnvProperty(tokens)) continue;
+  const positionals = tokens.slice(1).filter(token => !token.startsWith('-'));
+  for (let i = 0; i + 1 < positionals.length; i++) {
+    const verb = positionals[i].toLowerCase();
+    // A verb with no target introspects nothing, so `npm run inspect` stays allowed.
+    const dumps = CONFIG_DUMP_VERBS.has(verb) ||
+      (QUALIFIED_DUMP_VERBS.has(verb) && RUNTIME_INTROSPECTORS.has(binary));
+    if (dumps)
+      deny(`\`${binary} ${verb}\` renders the target's full configuration, which includes its environment variables. Read the single setting you need, or pass a --format/--property selector that excludes Env.`);
+  }
+  // `kubectl get pod -o yaml` prints the whole spec; plain `kubectl get pods` does not. Key on
+  // the machine-readable output flag so the everyday listing command keeps working.
+  if (positionals.some(token => token.toLowerCase() === 'get') &&
+      /(?:^|\s)(?:-o|--output)[=\s]+(?:yaml|json)\b/i.test(segment))
+    deny('Requesting a resource as yaml/json returns its full spec, environment variables included. Use a jsonpath/custom-columns selector for the field you actually need.');
+}
+
+// 7. Process-level reads. The environ path is handled as a secret path in rule 3 above, so it
+//    rides the reader and redirect detection instead of matching raw text anywhere in the
+//    command. What remains here is the option-shaped form, which has no path to match.
+for (const segment of segments) {
+  const tokens = words(segment);
+  if (commandName(tokens[0]) !== 'ps') continue;
+  // BSD option clusters carry `e` (ps eww, ps auxe). SysV `-e` just means "all processes" and
+  // must stay allowed, so only UNDASHED clusters count here.
+  if (tokens.slice(1).some(arg => !arg.startsWith('-') && /^[a-z]+$/.test(arg) && arg.includes('e')))
+    deny('`ps` with the BSD `e` option prints each process\'s environment. Drop the `e` (for example `ps aux`).');
+}
+
+// 8. Platform secret stores. Match the ACTION that emits values, not the vendor. `list` is
+//    names-only on every platform that offers it, so `gh secret list` and `fly secrets list`
+//    stay allowed - the severity difference the #94 report drew is preserved here.
+const VALUE_EMITTING_VERBS = ['reveal', 'pull', 'download', 'export', 'dump'];
+const SECRET_STORE_NOUNS = ['secret', 'secrets', 'env', 'environment', 'config', 'vars', 'variables'];
+for (const segment of segments) {
+  const tokens = words(segment);
+  if (!resolveBinary(tokens)) continue;
+  const positionals = tokens.slice(1)
+    .filter(token => !token.startsWith('-')).map(token => token.toLowerCase());
+  for (let i = 0; i < positionals.length; i++) {
+    const colon = /^(secrets?|env|environment|config|vars|variables)[:.](\w+)$/.exec(positionals[i]);
+    if (colon && VALUE_EMITTING_VERBS.concat('get').includes(colon[2]))
+      deny(`\`${positionals[i]}\` prints live secret values. Inject them at runtime instead.`);
+    if (SECRET_STORE_NOUNS.includes(positionals[i]) && VALUE_EMITTING_VERBS.includes(positionals[i + 1]))
+      deny(`\`${positionals[i]} ${positionals[i + 1]}\` writes or prints live secret VALUES. Inject them at runtime instead.`);
+  }
+}
 
 process.exit(0);
