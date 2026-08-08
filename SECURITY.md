@@ -11,14 +11,21 @@ channels below instead.
 
 ## How to report
 
-**Preferred: GitHub private vulnerability reporting.** Go to the
-[Security tab](https://github.com/aibuild-lab/workshop-installer/security/advisories/new)
-and open a draft advisory. It is private to you and the maintainers, it threads
-like an issue, and it converts into a published advisory once a fix ships.
+**If you are in the AI Build Lab Slack, that is the fastest channel, and it is
+where someone will actually see it.**
 
-**If you are on the AI Build Lab team:** file it in a private org repository
-instead, and link it here once a fix is public. `agent-native-os` is the usual
-home, since that is where the guard is pinned for students.
+Send it as a **direct message** to a member of the team, not to a shared channel.
+This is the one part worth being fussy about: a cohort channel has everyone in it,
+so posting a working bypass there is only a smaller version of posting it publicly.
+A DM is private, it reaches a person rather than a tab, and it does not need you to
+have any permission on this repository. If you are not sure who to send it to, DM
+whoever is running your cohort.
+
+**If you are not in that Slack**, use
+[GitHub private vulnerability reporting](https://github.com/aibuild-lab/workshop-installer/security/advisories/new).
+It is private to you and the maintainers, it threads like an issue, and it needs
+nothing more than a GitHub account. This is the right route for anyone outside the
+workshop.
 
 **If neither is available to you:** open a public issue that says only that you
 have a security finding and how to reach you. Do not include the finding itself.
@@ -50,8 +57,11 @@ The more of this you have, the faster it gets fixed. None of it is required.
 - Fixes land in this repository, which is canonical for the hooks. Shipping to
   students is a separate step: merge, tag the merge commit, then re-pin `ref` and
   the hashes in `agent-native-os`. Until the tag exists, `refresh-guard` fails safe.
-- We will credit you in the fix commit and the advisory unless you would rather we
-  did not. Say so and we will leave you out.
+- We will credit you in the fix commit unless you would rather we did not. Say so
+  and we will leave you out.
+- Whichever channel you use, the finding gets triaged by a person, not by a bot
+  watching a queue. If you have sent something and not heard back, nudge us. That
+  is not rude, it means the message landed somewhere nobody was looking.
 
 ## Scope
 
