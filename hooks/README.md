@@ -56,3 +56,33 @@ for the full plan.
   `printenv NAME`.
 - The guard is a strong floor, not a proof - static matching has edge cases. It's paired with
   the tripwire and is best combined with narrow per-session secrets identities.
+
+## Known limits (already triaged - please don't re-report as new)
+
+A hook inspects a command string before it runs. It cannot follow data through a file, and it
+cannot see what you type inside an interactive session. These are accepted consequences of that,
+not oversights:
+
+- **Path laundering.** `cp .env /tmp/x && cat /tmp/x` passes. Catching it needs data-flow
+  analysis across commands, which a per-command matcher does not have.
+- **Interactive sessions.** `docker exec -it web bash` and `aws ssm start-session` are allowed.
+  The guard vets the command that opens the session; whatever you type inside it is invisible.
+- **Bare `heroku config`.** Prints all values and is not blocked. Every rule tried for it also
+  caught `git config --list`, and a false block on that is worse than this gap.
+- **Names-only reads are allowed on purpose.** `grep -oE '^[A-Z_]+=' .env`, `grep -c`, and
+  `sed -i` cannot print a value, so they pass. Confirming a key is present is fine; printing it
+  is not. Same principle as the masked `... | head -c 4` fingerprint.
+- **`show` and `describe` are qualified by binary**, so an unusual runtime's version of them is a
+  miss. This is deliberate: unqualified, those two verbs cost 249 false blocks when replayed
+  against ~9.5k real commands (`git show`, `npm show`, and the word "describe" in a commit body).
+  Wrapper detection is the opposite case and fails *closed*.
+
+Finding something outside this list is worth reporting. The hooks are validators, so a repro
+never has to execute anything dangerous - feed the payload on stdin and read the verdict:
+
+```bash
+printf '{"tool_name":"Bash","tool_input":{"command":"<command>"}}' \
+  | node ~/.claude/hooks/secrets-guard.js; echo "exit=$?"
+```
+
+Exit 0 with no deny output means the command would have run.
