@@ -282,6 +282,11 @@ const CASES = [
   ['Bash', 'ssh api-host cat /proc/1/environ', 'deny'],
   ['Bash', 'ps eww', 'deny'],
   ['Bash', 'ps auxe', 'deny'],
+  // ...but WRITING about the path is not reading it. Caught in live use: a `gh pr merge --body`
+  // describing this very fix was blocked by an earlier draft that matched the path as raw text.
+  ['Bash', 'gh pr merge 19 --squash --body "adds a rule for /proc/<pid>/environ reads"', 'allow'],
+  ['Bash', 'git commit -m "document the /proc/1/environ class"', 'allow'],
+  ['Bash', 'grep -rn "/proc/self/environ" docs/', 'allow'],
 
   // -- the reader allowlist: any printer outside the set read .env untouched --
   ['Bash', 'grep . .env', 'deny'],

@@ -453,6 +453,11 @@ const SECRET_PATH_RULES = [
   [/(\.pem|id_rsa|id_ed25519|id_ecdsa|\.p12|\.pfx|\.jks|\.keystore)\b/i, false,
     'Reading a key/cert file prints private material to stdout.'],
   [/credentials\b/i, false, 'Reading a credentials file prints secrets to stdout.'],
+  // The OS hands the process environment over as a file, so it belongs with the other secret
+  // paths rather than as a standalone text match. Routing it through the reader rule means it
+  // fires when something READS it and not when a commit message or PR body mentions the path.
+  [/\/proc\/[^/\s]+\/environ\b/, false,
+    'That path is the raw process environment. Take the one value you need from your secrets manager instead.'],
 ];
 
 const GREP_FAMILY = new Set(['grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack']);
@@ -661,10 +666,9 @@ for (const segment of segments) {
     deny('Requesting a resource as yaml/json returns its full spec, environment variables included. Use a jsonpath/custom-columns selector for the field you actually need.');
 }
 
-// 7. Process-level reads. The OS hands the environment over directly: no wrapper to unwrap and
-//    no reader to enumerate, so match the destination path itself.
-if (/\/proc\/[^/\s]+\/environ\b/.test(inspection))
-  deny('/proc/<pid>/environ is the raw process environment. Take the one value you need from your secrets manager instead.');
+// 7. Process-level reads. The environ path is handled as a secret path in rule 3 above, so it
+//    rides the reader and redirect detection instead of matching raw text anywhere in the
+//    command. What remains here is the option-shaped form, which has no path to match.
 for (const segment of segments) {
   const tokens = words(segment);
   if (commandName(tokens[0]) !== 'ps') continue;
