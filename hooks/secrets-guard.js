@@ -21,7 +21,13 @@ const SECRET_SHAPES = [
   ['an Anthropic API key',      /\bsk-ant-[A-Za-z0-9_-]{24,}/],
   ['a Langfuse secret key',     /\bsk-lf-[A-Za-z0-9_-]{12,}/],
   ['an OpenAI-style key',       /\bsk-(?!ant-|lf-)(?:proj-)?[A-Za-z0-9_-]{20,}/],
-  ['a private key block',       /-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----/],
+  // Behaviour unchanged: a BEGIN header alone is still a deny, deliberately. Requiring key material
+  // in the same payload would let a key written in CHUNKS through (multiple Edits, or a truncated
+  // tool payload), which is a worse trade than the friction of blocking a header in prose. The
+  // escape hatch is the deny message's own advice: write a placeholder instead.
+  // Written as -{5} rather than five literal dashes, which is the identical regex but stops this
+  // file from tripping its own scanner when a guarded agent edits it.
+  ['a private key block',       /-{5}BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-{5}/],
   ['an AWS access key id',      /\bAKIA[0-9A-Z]{16}\b/],
   ['a GitHub token',            /\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{20,})/],
   ['a Slack token',             /\b(?:xox[bpsar]-[A-Za-z0-9-]{10,}|xapp-[A-Za-z0-9-]{10,})/],
@@ -30,6 +36,9 @@ const SECRET_SHAPES = [
   ['an Apify token',            /\bapify_api_[A-Za-z0-9]{20,}/],
   ['a Firecrawl key',           /\bfc-[A-Za-z0-9]{20,}/],
   ['a Google API key',          /\bAIza[0-9A-Za-z_-]{35}\b/],
+  // Live keys only. sk_test_ is deliberately excluded: Stripe's own tutorials paste test keys
+  // constantly, so matching them would generate false positives during ordinary coursework.
+  ['a Stripe secret key',       /\b(?:sk|rk)_live_[A-Za-z0-9]{16,}/],
 ];
 
 function findSecretShape(text) {
