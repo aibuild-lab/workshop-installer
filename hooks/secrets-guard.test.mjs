@@ -46,6 +46,8 @@ const CASES = [
   // --- other legitimate forms ---
   ['Bash', 'op run -- npm test', 'allow'],
   ['Bash', 'infisical run -- npm test', 'allow'],
+  ['Bash', 'infisical secrets agent-proxy run --projectId=project-id --env=prod --path=/agent-proxy/daily -- codex', 'allow'],
+  ['Bash', '/opt/homebrew/bin/infisical secrets agent-proxy run --help', 'allow'],
   // --env-file is an OPTION (loads a file into the child), not the `-- env` dump
   // command. The guard must not confuse the two. (regression: --\s* false positive)
   ['Bash', 'op run --env-file=secrets.env -- npm start', 'allow'],
@@ -104,6 +106,15 @@ const CASES = [
 
   // --- runtime-injection-wrapped env dumps (the bypass #9 closes) ---
   ['Bash', 'infisical run -- printenv', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy run --projectId=project-id --env=prod --path=/agent-proxy/daily -- printenv', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy run --projectId=project-id --env=prod --path=/agent-proxy/daily -- cat .env', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy run --set-env RAGNOS_ACCESS_LANE=daily -- codex', 'allow'],
+  ['Bash', 'infisical secrets agent-proxy run --pass-env OPENAI_API_KEY -- codex', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy run --pass-env=FIRECRAWL_API_KEY -- codex', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy run --set-env EXA_API_KEY=placeholder -- codex', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy run --no-sandbox -- codex', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy run --token=PASTE_YOUR_TOKEN_HERE -- codex', 'deny'],
+  ['Bash', 'infisical secrets agent-proxy start --port 17322', 'deny'],
   ['Bash', 'op run -- printenv', 'deny'],
   // --env-file flag is fine, but a real `-- env` dump tail after it must still block.
   ['Bash', 'op run --env-file=x.env -- env', 'deny'],

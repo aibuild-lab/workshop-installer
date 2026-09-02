@@ -9,8 +9,9 @@
 // Secret-name match spans KEY/TOKEN/SECRET/PASSWORD/CREDENTIAL forms on both shells.
 // Vault-agnostic: covers 1Password (op), Infisical, Bitwarden (bw), and the
 // universal leaks (env / cat .env / language-eval) that no vault choice prevents.
-// Allows runtime injection (op run / infisical run) but re-vets the WRAPPED command, so
-// `op run -- cat .env` can't dump. Blocks raw op reads AND printed `$(op read …)` command
+// Allows runtime injection (op run / infisical run) and the sandboxed local Infisical Agent
+// Proxy, but re-vets every WRAPPED command, so `op run -- cat .env` and
+// `infisical secrets agent-proxy run -- cat .env` cannot dump. Blocks raw op reads AND printed `$(op read …)` command
 // substitution; feeding a program `"$(op read …)"` and masked first4 checks stay allowed.
 // Remote-exec and wrapper forms (ssh, docker/kubectl exec, sudo, nohup, timeout, su -c,
 // find -exec) are likewise unwrapped so the inner command faces the same rules as a local run.
@@ -272,6 +273,16 @@ function collectInspectionCommands(root) {
         inspectTokens(tokens.slice(delimiter + 1), depth + 1, true);
     }
 
+    for (let i = 0; i + 3 < tokens.length; i++) {
+      if (commandName(tokens[i]) !== 'infisical' ||
+          String(tokens[i + 1]).toLowerCase() !== 'secrets' ||
+          String(tokens[i + 2]).toLowerCase() !== 'agent-proxy' ||
+          String(tokens[i + 3]).toLowerCase() !== 'run') continue;
+      const delimiter = tokens.indexOf('--', i + 4);
+      if (delimiter >= 0 && delimiter + 1 < tokens.length)
+        inspectTokens(tokens.slice(delimiter + 1), depth + 1, true);
+    }
+
     const payload = envPayload(tokens);
     const effective = payload === null ? tokens : payload;
     if (payload && payload.length) inspectTokens(payload, depth + 1, true);
@@ -488,8 +499,38 @@ function denyIfSecretPath(text) {
     if (re.test(useSafe ? safe : raw)) deny(message);
 }
 
-// 1. Secrets-manager bulk dumps (any vault, any shell - these are external CLIs)
-if (/\binfisical\s+secrets\b(?!\s+set\b)/.test(inspection)) deny('infisical secrets dumps vault values to stdout. Use `infisical run -- <cmd>` to inject at runtime.');
+// 1. Secrets-manager bulk dumps (any vault, any shell - these are external CLIs).
+// The one narrow exception is the local Agent Proxy `run` command: it brokers values on the
+// wire, places only placeholders in the child, and is safe only while the sandbox remains on.
+// Its child command was added to the inspection set above and therefore faces every normal
+// print/read rule below.
+for (const seg of segments) {
+  const tokens = words(seg);
+  let i = 0;
+  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
+  if (commandName(tokens[i]) !== 'infisical' || String(tokens[i + 1] || '').toLowerCase() !== 'secrets') continue;
+  const localAgentProxy = String(tokens[i + 2] || '').toLowerCase() === 'agent-proxy' &&
+    String(tokens[i + 3] || '').toLowerCase() === 'run';
+  if (!localAgentProxy)
+    deny('infisical secrets commands can print vault values. Use a reviewed runtime delivery command instead.');
+  const proxyDelimiter = tokens.indexOf('--', i + 4);
+  const proxyArgs = tokens.slice(i + 4, proxyDelimiter >= 0 ? proxyDelimiter : tokens.length);
+  if (proxyArgs.some(arg => arg === '--no-sandbox' || arg.startsWith('--no-sandbox=')))
+    deny('The local Infisical Agent Proxy must keep its OS sandbox enabled.');
+  if (proxyArgs.some(arg => arg === '--token' || arg.startsWith('--token=')))
+    deny('Do not place an Infisical token in the Agent Proxy command. Use the named-human login session.');
+  for (let j = 0; j < proxyArgs.length; j++) {
+    const arg = String(proxyArgs[j]);
+    const next = String(proxyArgs[j + 1] || '');
+    const passedName = arg === '--pass-env' ? next : (arg.startsWith('--pass-env=') ? arg.slice('--pass-env='.length) : '');
+    const setName = arg === '--set-env' ? next.split('=', 1)[0] :
+      (arg.startsWith('--set-env=') ? arg.slice('--set-env='.length).split('=', 1)[0] : '');
+    if (passedName && isSecretVar(passedName))
+      deny('Do not pass credential-shaped host environment variables into the Agent Proxy child.');
+    if (setName && isSecretVar(setName))
+      deny('Do not set credential-shaped environment variables in the Agent Proxy child.');
+  }
+}
 if (/\binfisical\s+export\b/.test(inspection))               deny('infisical export prints all secrets. Use `infisical run -- <cmd>`.');
 if (/\bbw\s+export\b/.test(inspection))                       deny('bw export prints your whole Bitwarden vault. Read one item with `bw get` or inject at runtime.');
 if (/\bbw\s+list\s+items\b/.test(inspection))                 deny('bw list items prints item contents including passwords. Use `bw get <id>` for a single field.');
