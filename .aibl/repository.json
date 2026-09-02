@@ -1,0 +1,55 @@
+{
+  "schema_version": "aibl.repository-descriptor/v1",
+  "id": "repo.workshop-installer",
+  "display_name": "Workshop Installer",
+  "repository": "aibuild-lab/workshop-installer",
+  "authority_scope": "Owns the public student setup and installation guide for AI Build Lab workshops, including the Claude-guided setup prompt, deterministic installer beta, migration helpers, and secret-protection checks. It does not own Company Hub catalog routing, private student repositories, course release authority, media, or credentials.",
+  "lifecycle": "current",
+  "audience": "public",
+  "privacy_class": "public",
+  "owner": "AIBL Education Team",
+  "human_entry_points": [
+    {
+      "label": "Installer guide",
+      "path": "README.md"
+    },
+    {
+      "label": "Manual install guide",
+      "path": "MANUAL-INSTALL.md"
+    },
+    {
+      "label": "OpenWiki quickstart",
+      "path": "openwiki/quickstart.md"
+    }
+  ],
+  "agent_entry_points": [
+    {
+      "label": "Agent contract",
+      "path": "AGENTS.md"
+    },
+    {
+      "label": "Installer tests",
+      "path": "tests/install.test.mjs"
+    },
+    {
+      "label": "Secrets guard",
+      "path": "hooks/secrets-guard.js"
+    }
+  ],
+  "review": {
+    "reviewed_at": "2026-09-02",
+    "cadence_days": 90
+  },
+  "roadmap_refs": [],
+  "replacement_ref": null,
+  "notes": "During Company Hub coexistence, Company Hub is the catalog and routing projection for this repository, while Team HQ remains readable and accepts existing work. This repository remains a public student delivery tool and should stay separate. Credentials and secret material stay outside Git; the tracked repository includes secret guard and tripwire tooling. The open hold is to bind installer versions to supported course releases and dependency checks.",
+  "extensions": {
+    "aibl.workshop-installer": {
+      "authority_role": "student-setup-installer",
+      "delivery_state": "public-student-tool",
+      "version_binding": "supported-course-releases",
+      "dependency_checks": "required",
+      "coexistence_route": "company-hub-first-teamhq-fallback"
+    }
+  }
+}
