@@ -28,6 +28,10 @@ class deterministically, whether or not the model "remembers." (Anthropic issue 
   sibling segment. It also blocks a literal vendor-shaped key embedded in a shell command
   (`printf`, heredoc, `node -e writeFileSync`, inline `Authorization: Bearer …`) and - via the
   `Write`/`Edit`/`MultiEdit`/`NotebookEdit` matcher - a real key written straight into a file.
+  Direct `infisical dynamic-secrets` and `infisical pam` invocations are denied because they can
+  return credentials outside the reviewed launcher lifecycle. Infisical token flags and sandbox
+  bypass flags are denied for every Infisical command. The only `infisical secrets` exception is
+  sandboxed `secrets agent-proxy run`, whose child is recursively inspected.
 - **`secrets-tripwire.js`** - `PostToolUse` / `PostToolUseFailure` hook. On success it **redacts**
   every secret-shaped match from the tool output before Claude sees it (`updatedToolOutput`),
   preserving the output's shape; on failure (which cannot be rewritten) it emits names-only

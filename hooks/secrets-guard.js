@@ -508,17 +508,24 @@ for (const seg of segments) {
   const tokens = words(seg);
   let i = 0;
   while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++;
-  if (commandName(tokens[i]) !== 'infisical' || String(tokens[i + 1] || '').toLowerCase() !== 'secrets') continue;
+  if (commandName(tokens[i]) !== 'infisical') continue;
+  const infisicalArgs = tokens.slice(i + 1);
+  const infisicalCommand = String(infisicalArgs[0] || '').toLowerCase();
+  if (infisicalArgs.some(arg => arg === '--no-sandbox' || arg.startsWith('--no-sandbox=')))
+    deny('Infisical agent access must keep its operating-system sandbox enabled.');
+  if (infisicalArgs.some(arg => arg === '--token' || arg.startsWith('--token=')))
+    deny('Do not place an Infisical token in a command. Use the named-human login session.');
+  if (infisicalCommand === 'dynamic-secrets')
+    deny('Direct Infisical dynamic-secret reads return credentials. Use the reviewed launcher that leases, contains, and revokes them.');
+  if (infisicalCommand === 'pam')
+    deny('Direct Infisical PAM access can return or expose credentials. Use a separately reviewed sandboxed launcher.');
+  if (infisicalCommand !== 'secrets') continue;
   const localAgentProxy = String(tokens[i + 2] || '').toLowerCase() === 'agent-proxy' &&
     String(tokens[i + 3] || '').toLowerCase() === 'run';
   if (!localAgentProxy)
     deny('infisical secrets commands can print vault values. Use a reviewed runtime delivery command instead.');
   const proxyDelimiter = tokens.indexOf('--', i + 4);
   const proxyArgs = tokens.slice(i + 4, proxyDelimiter >= 0 ? proxyDelimiter : tokens.length);
-  if (proxyArgs.some(arg => arg === '--no-sandbox' || arg.startsWith('--no-sandbox=')))
-    deny('The local Infisical Agent Proxy must keep its OS sandbox enabled.');
-  if (proxyArgs.some(arg => arg === '--token' || arg.startsWith('--token=')))
-    deny('Do not place an Infisical token in the Agent Proxy command. Use the named-human login session.');
   for (let j = 0; j < proxyArgs.length; j++) {
     const arg = String(proxyArgs[j]);
     const next = String(proxyArgs[j + 1] || '');
