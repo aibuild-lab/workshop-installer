@@ -511,7 +511,13 @@ for (const seg of segments) {
   if (commandName(tokens[i]) !== 'infisical') continue;
   const infisicalArgs = tokens.slice(i + 1);
   const infisicalCommand = String(infisicalArgs[0] || '').toLowerCase();
-  if (infisicalArgs.some(arg => arg === '--no-sandbox' || arg.startsWith('--no-sandbox=')))
+  const sandboxDisabled = infisicalArgs.some((arg, index) => {
+    const value = String(arg).toLowerCase();
+    if (value === '--no-sandbox' || value.startsWith('--no-sandbox=')) return true;
+    if (value === '--sandbox=false' || value === '--sandbox=0' || value === '--sandbox=off' || value === '--sandbox=no') return true;
+    return value === '--sandbox' && ['false', '0', 'off', 'no'].includes(String(infisicalArgs[index + 1] || '').toLowerCase());
+  });
+  if (sandboxDisabled)
     deny('Infisical agent access must keep its operating-system sandbox enabled.');
   if (infisicalArgs.some(arg => arg === '--token' || arg.startsWith('--token=')))
     deny('Do not place an Infisical token in a command. Use the named-human login session.');
