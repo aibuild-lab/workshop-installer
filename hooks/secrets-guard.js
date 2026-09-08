@@ -562,7 +562,14 @@ if (/\bbw\s+export\b/.test(inspection))                       deny('bw export pr
 if (/\bbw\s+list\s+items\b/.test(inspection))                 deny('bw list items prints item contents including passwords. Use `bw get <id>` for a single field.');
 if (/\bop\s+item\s+get\b[^|]*--reveal/.test(inspection))      deny('op item get --reveal prints field values. Use Infisical runtime injection for non-human consumers; keep 1Password use interactive and human-only.');
 if (/\bsupabase\s+projects\s+api-keys\b[^|]*--reveal/i.test(inspection)) deny('supabase projects api-keys --reveal prints project secrets.');
-if (/--plain\b/.test(inspection))                             deny('--plain forces raw secret values to stdout.');
+// systemd's `--plain` suppresses tree glyphs in a unit listing; it does not reveal unit
+// configuration or environment. Keep this exception exact so similarly named flags on secret
+// stores remain denied, including variants of the systemctl command with broader selectors.
+const inspectionWithoutSafeSystemdPlain = inspection.replace(
+  /\bsystemctl\s+list-units\s+--type=service\s+--state=running\s+--no-legend\s+--no-pager\s+--plain\b/g,
+  'systemctl list-units --type=service --state=running --no-legend --no-pager'
+);
+if (/--plain\b/.test(inspectionWithoutSafeSystemdPlain))       deny('--plain forces raw secret values to stdout.');
 // `op read` as a LIVE command prints a secret. Token inspection distinguishes an executable
 // (including a path-qualified one or a nested shell payload) from inert quoted grep text.
 for (const clause of clauses) {

@@ -406,6 +406,12 @@ const CASES = [
   // `systemctl show -p <prop>` is the remediation the deny message recommends.
   ['Bash', 'systemctl --user show hermes-gateway.service -p Restart -p RestartSec', 'allow'],
   ['Bash', 'systemctl --user show hermes-gateway.service -p Environment', 'deny'],
+  // systemd uses --plain only to suppress tree glyphs. Preserve the global secret-output deny
+  // for every other use and pin the exact nested request shape that was blocked in live work.
+  ['Bash', 'systemctl list-units --type=service --state=running --no-legend --no-pager --plain', 'allow'],
+  ['Bash', `python3 -c "commands=['systemctl list-units --type=service --state=running --no-legend --no-pager --plain | awk {print}']"`, 'allow'],
+  ['Bash', 'systemctl list-units --type=service --state=failed --no-legend --no-pager --plain', 'deny'],
+  ['Bash', 'vault kv get --plain secret/example', 'deny'],
   // Auditing a .env WITHOUT printing values - the names-only idiom, and its value-printing sibling.
   ['Bash', `grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' ~/.hermes/.env`, 'allow'],
   ['Bash', `grep -ohE "^LANGFUSE[A-Z_]*=" ~/.hermes/.env`, 'allow'],
