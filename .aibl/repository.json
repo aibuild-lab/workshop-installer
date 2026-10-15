@@ -1,5 +1,5 @@
 {
-  "schema_version": "aibl.repository-descriptor/v1",
+  "schema_version": "aibl.repository-descriptor/v2",
   "id": "repo.workshop-installer",
   "display_name": "Workshop Installer",
   "repository": "aibuild-lab/workshop-installer",
@@ -20,9 +20,7 @@
     {
       "label": "OpenWiki quickstart",
       "path": "openwiki/quickstart.md"
-    }
-  ],
-  "agent_entry_points": [
+    },
     {
       "label": "Agent contract",
       "path": "AGENTS.md"
@@ -36,8 +34,23 @@
       "path": "hooks/secrets-guard.js"
     }
   ],
+  "agent_entry_points": [
+    {
+      "id": "repository-guide",
+      "kind": "instructions",
+      "purpose": "Read Agent contract before acting; linked commands retain their owning approval requirements",
+      "path": "AGENTS.md",
+      "status": "active",
+      "effect_class": "read_only",
+      "approval_class": "none",
+      "read_only": true,
+      "destructive": false,
+      "idempotent": true,
+      "open_world": false
+    }
+  ],
   "review": {
-    "reviewed_at": "2026-09-02",
+    "reviewed_at": "2026-10-15",
     "cadence_days": 90
   },
   "roadmap_refs": [],
@@ -51,5 +64,6 @@
       "dependency_checks": "required",
       "coexistence_route": "company-hub-first-teamhq-fallback"
     }
-  }
+  },
+  "accountable_owner_slug": "aibl-education-team"
 }
